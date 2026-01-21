@@ -2,4 +2,4 @@
 
 | Commit Hash | Description |
 | :--- | :--- |
-| (Init) | feat: Initial commit with parallel parsing, UI refinements, and local indexing |
+| 2dd1b5c | feat: Initial commit with parallel parsing, UI refinements, and local indexing |
