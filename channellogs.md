@@ -1,4 +1,4 @@
-# Keysly Commit History
+# Discord Package Explorer Commit History
 
 | Commit Hash | Description |
 | :--- | :--- |
