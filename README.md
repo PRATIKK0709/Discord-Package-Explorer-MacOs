@@ -1,4 +1,4 @@
-# DiscSwiftPckg
+# DiscSwiftPckg (WIP)
 
 A SwiftUI application to visualize and explore your Discord Data Package.
 
