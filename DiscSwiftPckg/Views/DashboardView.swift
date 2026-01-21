@@ -5,7 +5,7 @@ struct DashboardView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
                 // Header with user
                 headerSection
                 
@@ -67,10 +67,8 @@ struct DashboardView: View {
                 
                 Spacer(minLength: 20)
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(32)
         }
-        .frame(maxWidth: .infinity)
         .background(Theme.bgPrimary)
     }
     
@@ -176,10 +174,7 @@ struct DashboardView: View {
     
     private var statsGrid: some View {
         LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible())
+            GridItem(.adaptive(minimum: 160), spacing: 16)
         ], spacing: 16) {
             StatCard(title: "Messages", value: viewModel.formatNumber(viewModel.stats.messageCount), subtitle: String(format: "%.1f/day", viewModel.stats.messagesPerDay), icon: "bubble.left.fill", color: .blue)
             StatCard(title: "Words", value: viewModel.formatNumber(viewModel.stats.wordCount), subtitle: "typed", icon: "text.cursor", color: .purple)

@@ -60,24 +60,12 @@ struct DiscordStats {
     // Server stats
     var serverCount: Int = 0
     var serverNames: [String] = []
+    var serverList: [(name: String, messageCount: Int)] = []
     var serverChannelCount: Int = 0
     var serverMessages: Int = 0
     var mutedServerCount: Int = 0
     
-    // Events/Analytics
-    var appOpenedCount: Int = 0
-    var voiceChannelJoins: Int = 0
-    var callsJoined: Int = 0
-    var reactionsAdded: Int = 0
-    var reactionsRemoved: Int = 0
-    var messagesEdited: Int = 0
-    var messagesDeleted: Int = 0
-    var slashCommandsUsed: Int = 0
-    var notificationsClicked: Int = 0
-    var invitesSent: Int = 0
-    var giftsSent: Int = 0
-    var searchesStarted: Int = 0
-    var appCrashes: Int = 0
+
     
     // Payments
     var totalSpent: [String: Double] = [:]

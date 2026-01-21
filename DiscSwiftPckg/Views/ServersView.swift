@@ -4,11 +4,12 @@ struct ServersView: View {
     @EnvironmentObject var viewModel: PackageViewModel
     @State private var searchText = ""
     
-    var filteredServers: [String] {
+    var filteredServers: [(name: String, messageCount: Int)] {
+        let list = viewModel.stats.serverList
         if searchText.isEmpty {
-            return viewModel.stats.serverNames
+            return list
         }
-        return viewModel.stats.serverNames.filter { $0.localizedCaseInsensitiveContains(searchText) }
+        return list.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
     
     var body: some View {
@@ -21,7 +22,7 @@ struct ServersView: View {
                 
                 Spacer()
                 
-                Text("\(viewModel.stats.serverCount) total")
+                Text("\(viewModel.stats.serverList.count) total")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -66,7 +67,7 @@ struct ServersView: View {
                                 VStack(spacing: 8) {
                                     ZStack {
                                         Circle()
-                                            .fill(Theme.accent.opacity(0.2))
+                                            .fill(Theme.accent.opacity(0.1))
                                             .frame(width: 48, height: 48)
                                         Text(String(server.name.prefix(1)).uppercased())
                                             .font(.system(size: 18, weight: .bold))
@@ -76,7 +77,7 @@ struct ServersView: View {
                                         .font(.system(size: 11))
                                         .lineLimit(1)
                                         .frame(width: 80)
-                                    Text("\(server.messageCount)")
+                                    Text(viewModel.formatNumber(server.messageCount))
                                         .font(.system(size: 10))
                                         .foregroundStyle(Theme.textSecondary)
                                 }
@@ -90,27 +91,39 @@ struct ServersView: View {
             
             // Server list
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160))], spacing: 12) {
-                    ForEach(filteredServers, id: \.self) { name in
-                        HStack(spacing: 10) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 16)], spacing: 16) {
+                    ForEach(filteredServers, id: \.name) { server in
+                        HStack(spacing: 12) {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Theme.accent.opacity(0.15))
-                                    .frame(width: 36, height: 36)
-                                Text(String(name.prefix(1)).uppercased())
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Theme.accent)
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Theme.bgSecondary)
+                                    .frame(width: 44, height: 44)
+                                Text(String(server.name.prefix(1)).uppercased())
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
                             }
                             
-                            Text(name)
-                                .font(.system(size: 13))
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(server.name)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineLimit(1)
+                                
+                                Text("\(viewModel.formatNumber(server.messageCount)) messages")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
                             
                             Spacer()
                         }
-                        .padding(10)
-                        .background(Theme.bgSecondary)
-                        .cornerRadius(10)
+                        .padding(12)
+                        //.background(Theme.bgSecondary) // Using overlay border mostly or plain bg
+                        .background(Color.white) // Card look
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(Theme.border, lineWidth: 1)
+                        )
                     }
                 }
                 .padding(.horizontal, 32)

@@ -12,6 +12,7 @@ class PackageViewModel: ObservableObject {
     @Published var debugLog: [String] = []
     
     private var startTime: Date?
+    var packageRoot: URL?
     
     private func log(_ msg: String) {
         let elapsed = startTime.map { String(format: "%.2fs", Date().timeIntervalSince($0)) } ?? "0.00s"
@@ -51,6 +52,8 @@ class PackageViewModel: ObservableObject {
             root = url.appendingPathComponent("package")
         }
         
+        self.packageRoot = root
+        
         log("Root: \(root.lastPathComponent)")
         
         // 1. Parse user.json
@@ -69,9 +72,7 @@ class PackageViewModel: ObservableObject {
         updateProgress(0.15, "Processing messages...")
         parseMessagesDiscordPackageStyle(at: root)
         
-        // 4. Parse analytics if available
-        updateProgress(0.9, "Parsing analytics...")
-        parseAnalytics(at: root)
+
         
         // 5. Parse Tickets
         updateProgress(0.95, "Loading tickets...")
@@ -798,6 +799,11 @@ class PackageViewModel: ObservableObject {
             createDetailedStats(id: id, name: serverIdToName[id] ?? "Server \(id)", acc: acc)
         }.sorted { $0.messageCount > $1.messageCount }.prefix(20).map { $0 }
         
+        let allServers = serverStats.map { (id, acc) in
+            let name = serverIdToName[id] ?? "Server \(id)"
+            return (name: name, messageCount: acc.messageCount)
+        }.sorted { $0.messageCount > $1.messageCount }
+        
         let topDMs = dmStats.map { (id, acc) in
             let rawName = dmChannelInfos[id] ?? "Unknown DM"
             let cleanName = rawName.replacingOccurrences(of: "Direct Message with ", with: "")
@@ -825,6 +831,7 @@ class PackageViewModel: ObservableObject {
             self.stats.topWords = topWords
             self.stats.topCustomEmojis = topEmojis
             self.stats.topServers = Array(topServers) // Explicitly cast if needed, though map returns array
+            self.stats.serverList = allServers
             self.stats.topDMs = Array(topDMs)
             self.stats.topCursedWords = topCursed
             self.stats.topLinks = topLinks
@@ -833,133 +840,9 @@ class PackageViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Parse Analytics
+
     
-    private func parseAnalytics(at root: URL) {
-        log("Starting parallel analytics scan...")
-        
-        let fileManager = FileManager.default
-        var jsonFiles: [URL] = []
-        
-        // 1. Find all JSON files in Activity folders
-        for folderName in ["Activity", "activity"] {
-            let folderURL = root.appendingPathComponent(folderName)
-            var isDir: ObjCBool = false
-            if fileManager.fileExists(atPath: folderURL.path, isDirectory: &isDir) && isDir.boolValue {
-                // Enumerator to find all files recursively (some packages have nested folders)
-                if let enumerator = fileManager.enumerator(at: folderURL, includingPropertiesForKeys: nil) {
-                    for case let fileURL as URL in enumerator {
-                        if fileURL.pathExtension == "json" {
-                            jsonFiles.append(fileURL)
-                        }
-                    }
-                }
-            }
-        }
-        
-        if jsonFiles.isEmpty {
-            log("No analytics JSON files found.")
-            return
-        }
-        
-        log("Found \(jsonFiles.count) analytics files. Parsing...")
-        
-        // 2. Thread-safe Aggregation
-        let lock = NSLock()
-        var eventCounts: [String: Int] = [:]
-        
-        // Define relevant event types
-        let trackedEvents: Set<String> = [
-            "app_opened", "join_voice_channel", "join_call", "add_reaction",
-            "message_edited", "message_deleted", "slash_command_used",
-            "notification_clicked", "invite_sent", "gift_code_sent",
-            "search_started", "app_crashed"
-        ]
-        
-        log("Processing \(jsonFiles.count) files with optimized batching...")
-        
-        // Optimize: Process in batches to control memory usage
-        let batchSize = 10 // Process 10 files concurrently max
-        let chunks = stride(from: 0, to: jsonFiles.count, by: batchSize).map {
-            Array(jsonFiles[$0..<min($0 + batchSize, jsonFiles.count)])
-        }
-        
-        // Use a background queue but limit concurrency via the chunking structure
-        let queue = DispatchQueue(label: "com.discswift.analytics", attributes: .concurrent)
-        let group = DispatchGroup()
-        
-        for (index, chunk) in chunks.enumerated() {
-            group.enter()
-            queue.async { [weak self] in
-                defer { group.leave() }
-                
-                // Process each file in this chunk
-                for fileURL in chunk {
-                    var localCounts: [String: Int] = [:]
-                    
-                    // Use mappedIfSafe to avoid loading entire file into RAM if possible
-                    if let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe) {
-                        do {
-                            // Try standard array parsing
-                            if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                                for event in jsonArray {
-                                    if let type = event["event_type"] as? String, trackedEvents.contains(type) {
-                                        localCounts[type, default: 0] += 1
-                                    }
-                                }
-                            } else if let jsonObject = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                                 // Single object case
-                                 if let type = jsonObject["event_type"] as? String, trackedEvents.contains(type) {
-                                        localCounts[type, default: 0] += 1
-                                 }
-                            }
-                        } catch {
-                            // Silent failing on bad JSON, but log first few errors
-                            // self?.log("Error parsing \(fileURL.lastPathComponent): \(error.localizedDescription)")
-                        }
-                    }
-                    
-                    // Merge results immediately to free local memory
-                    if !localCounts.isEmpty {
-                        lock.lock()
-                        for (key, count) in localCounts {
-                            eventCounts[key, default: 0] += count
-                        }
-                        lock.unlock()
-                    }
-                }
-                
-                // Log progress for every few chunks
-                if index % 5 == 0 {
-                    let progress = Double(index * batchSize) / Double(jsonFiles.count) * 100
-                    let uiProgress = 0.9 + (progress / 100.0) * 0.1
-                    self?.log(String(format: "Analytics Progress: %.1f%% (Memory Optimized)", progress))
-                    self?.updateProgress(uiProgress, String(format: "Parsing analytics... %.0f%%", progress))
-                }
-            }
-        }
-        
-        group.wait() // Wait for all batches to finish
-        
-        // 3. Update Main Stats
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.stats.appOpenedCount = eventCounts["app_opened"] ?? 0
-            self.stats.voiceChannelJoins = eventCounts["join_voice_channel"] ?? 0
-            self.stats.callsJoined = eventCounts["join_call"] ?? 0
-            self.stats.reactionsAdded = eventCounts["add_reaction"] ?? 0
-            self.stats.messagesEdited = eventCounts["message_edited"] ?? 0
-            self.stats.messagesDeleted = eventCounts["message_deleted"] ?? 0
-            self.stats.slashCommandsUsed = eventCounts["slash_command_used"] ?? 0
-            self.stats.notificationsClicked = eventCounts["notification_clicked"] ?? 0
-            self.stats.invitesSent = eventCounts["invite_sent"] ?? 0
-            self.stats.giftsSent = eventCounts["gift_code_sent"] ?? 0
-            self.stats.searchesStarted = eventCounts["search_started"] ?? 0
-            self.stats.appCrashes = eventCounts["app_crashed"] ?? 0
-            
-            self.log("Parallel analytics parsing completed.")
-        }
-    }
+
     
     private func parseDate(_ ts: String) -> Date? {
         // Discord timestamp format: 2024-01-15T12:30:45.123+00:00 or 2024-01-15T12:30:45.123Z
@@ -1012,4 +895,7 @@ class PackageViewModel: ObservableObject {
         if num >= 1000 { return String(format: "%.1fK", Double(num) / 1000.0) }
         return "\(num)"
     }
+
+
+
 }

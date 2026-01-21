@@ -30,14 +30,14 @@ extension Color {
 enum NavItem: String, CaseIterable {
     case dashboard = "Dashboard"
     case messages = "Messages"
-    case activity = "Activity"
+
     case servers = "Servers"
     
     var icon: String {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .messages: return "bubble.left.and.bubble.right"
-        case .activity: return "chart.line.uptrend.xyaxis"
+
         case .servers: return "server.rack"
         }
     }
@@ -59,7 +59,7 @@ struct ContentView: View {
             }
         }
 
-        .frame(width: 1000, height: 700)
+        .frame(width: 1050, height: 750)
         .preferredColorScheme(.light)
     }
     
@@ -148,8 +148,7 @@ struct ContentView: View {
             DashboardView()
         case .messages:
             MessagesView()
-        case .activity:
-            ActivityView()
+
         case .servers:
             ServersView()
         }
