@@ -299,18 +299,11 @@ class PackageViewModel: ObservableObject {
         var dmChannelInfos = [String: String]() // Channel ID -> Name (for final mapping)
         
         // --- REGEX SETUP ---
-        // Reference Repos Cursed Words Regex (from components/utils/index.js)
-        let cursedPattern = "\\b(4r5e|5h1t|5hit|a55|anal|anus|ar5e|arrse|arse|ass|ass-fucker|asses|assfucker|assfukka|asshole|assholes|asswhole|a_s_s|b!tch|b00bs|b17ch|b1tch|ballbag|balls|ballsack|bastard|beastial|beastiality|bellend|bestial|bestiality|bi\\+ch|biatch|bitch|bitcher|bitchers|bitches|bitchin|bitching|bloody|blow job|blowjob|blowjobs|boiolas|bollock|bollok|boner|boob|boobs|booobs|boooobs|booooobs|booooooobs|breasts|buceta|bugger|bum|bunny fucker|butt|butthole|buttmuch|buttplug|c0ck|c0cksucker|carpet muncher|cawk|chink|cipa|cl1t|clit|clitoris|clits|cnut|cock|cock-sucker|cockface|cockhead|cockmunch|cockmuncher|cocks|cocksuck|cocksucked|cocksucker|cocksucking|cocksucks|cocksuka|cocksukka|cok|cokmuncher|coksucka|coon|cox|crap|cum|cummer|cumming|cums|cumshot|cunilingus|cunillingus|cunnilingus|cunt|cuntlick|cuntlicker|cuntlicking|cunts|cyalis|cyberfuc|cyberfuck|cyberfucked|cyberfucker|cyberfuckers|cyberfucking|d1ck|damn|dick|dickhead|dildo|dildos|dink|dinks|dirsa|dlck|dog-fucker|doggin|dogging|donkeyribber|doosh|duche|dyke|ejaculate|ejaculated|ejaculates|ejaculating|ejaculatings|ejaculation|ejakulate|f u c k|f u c k e r|f4nny|fag|fagging|faggitt|faggot|faggs|fagot|fagots|fags|fanny|fannyflaps|fannyfucker|fanyy|fatass|fcuk|fcuker|fcuking|feck|fecker|felching|fellate|fellatio|fingerfuck|fingerfucked|fingerfucker|fingerfuckers|fingerfucking|fingerfucks|fistfuck|fistfucked|fistfucker|fistfuckers|fistfucking|fistfuckings|fistfucks|flange|fook|fooker|fuck|fucka|fucked|fucker|fuckers|fuckhead|fuckheads|fuckin|fucking|fuckings|fuckingshitmotherfucker|fuckme|fucks|fuckwhit|fuckwit|fudge packer|fudgepacker|fuk|fuker|fukker|fukkin|fuks|fukwhit|fukwit|fux|fux0r|f_u_c_k|gangbang|gangbanged|gangbangs|gaylord|gaysex|goatse|God|god-dam|god-damned|goddamn|goddamned|hardcoresex|hell|heshe|hoar|hoare|hoer|homo|hore|horniest|horny|hotsex|jack-off|jackoff|jap|jerk-off|jism|jiz|jizm|jizz|kawk|knob|knobead|knobed|knobend|knobhead|knobjocky|knobjokey|kock|kondum|kondums|kum|kummer|kumming|kums|kunilingus|l3i\\+ch|l3itch|labia|lust|lusting|m0f0|m0fo|m45terbate|ma5terb8|ma5terbate|masochist|master-bate|masterb8|masterbat*|masterbat3|masterbate|masterbation|masterbations|masturbate|mo-fo|mof0|mofo|mothafuck|mothafucka|mothafuckas|mothafuckaz|mothafucked|mothafucker|mothafuckers|mothafuckin|mothafucking|mothafuckings|mothafucks|mother fucker|motherfuck|motherfucked|motherfucker|motherfuckers|motherfuckin|motherfucking|motherfuckings|motherfuckka|motherfucks|muff|mutha|muthafecker|muthafuckker|muther|mutherfucker|n1gga|n1gger|nazi|nigg3r|nigg4h|nigga|niggah|niggas|niggaz|nigger|niggers|nob|nob jokey|nobhead|nobjocky|nobjokey|numbnuts|nutsack|orgasim|orgasims|orgasm|orgasms|p0rn|pawn|pecker|penis|penisfucker|phonesex|phuck|phuk|phuked|phuking|phukked|phukking|phuks|phuq|pigfucker|pimpis|piss|pissed|pisser|pissers|pisses|pissflaps|pissin|pissing|pissoff|poop|porn|porno|pornography|pornos|prick|pricks|pron|pube|pusse|pussi|pussies|pussy|pussys|rectum|retard|rimjaw|rimming|s hit|s.o.b.|sadist|schlong|screwing|scroat|scrote|scrotum|semen|sex|sh!\\+|sh!t|sh1t|shag|shagger|shaggin|shagging|shemale|shi\\+|shit|shitdick|shite|shited|shitey|shitfuck|shitfull|shithead|shiting|shitings|shits|shitted|shitter|shitters|shitting|shittings|shitty|skank|slut|sluts|smegma|smut|snatch|son-of-a-bitch|spac|spunk|s_h_i_t|t1tt1e5|t1tties|teets|teez|testical|testicle|tit|titfuck|tits|titt|tittie5|tittiefucker|titties|tittyfuck|tittywank|titwank|tosser|turd|tw4t|twat|twathead|twatty|twunt|twunter|v14gra|v1gra|vagina|viagra|vulva|w00se|wang|wank|wanker|wanky|whoar|whore|willies|willy|xrated|xxx)\\b"
+        // Pre-compute cursed words set for O(1) lookup
+        let cursedWordsList = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses", "assfucker", "assfukka", "asshole", "assholes", "asswhole", "a_s_s", "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls", "ballsack", "bastard", "beastial", "beastiality", "bellend", "bestial", "bestiality", "bi+ch", "biatch", "bitch", "bitcher", "bitchers", "bitches", "bitchin", "bitching", "bloody", "blow job", "blowjob", "blowjobs", "boiolas", "bollock", "bollok", "boner", "boob", "boobs", "booobs", "boooobs", "booooobs", "booooooobs", "breasts", "buceta", "bugger", "bum", "bunny fucker", "butt", "butthole", "buttmuch", "buttplug", "c0ck", "c0cksucker", "carpet muncher", "cawk", "chink", "cipa", "cl1t", "clit", "clitoris", "clits", "cnut", "cock", "cock-sucker", "cockface", "cockhead", "cockmunch", "cockmuncher", "cocks", "cocksuck", "cocksucked", "cocksucker", "cocksucking", "cocksucks", "cocksuka", "cocksukka", "cok", "cokmuncher", "coksucka", "coon", "cox", "crap", "cum", "cummer", "cumming", "cums", "cumshot", "cunilingus", "cunillingus", "cunnilingus", "cunt", "cuntlick", "cuntlicker", "cuntlicking", "cunts", "cyalis", "cyberfuc", "cyberfuck", "cyberfucked", "cyberfucker", "cyberfuckers", "cyberfucking", "d1ck", "damn", "dick", "dickhead", "dildo", "dildos", "dink", "dinks", "dirsa", "dlck", "dog-fucker", "doggin", "dogging", "donkeyribber", "doosh", "duche", "dyke", "ejaculate", "ejaculated", "ejaculates", "ejaculating", "ejaculatings", "ejaculation", "ejakulate", "f u c k", "f u c k e r", "f4nny", "fag", "fagging", "faggitt", "faggot", "faggs", "fagot", "fagots", "fags", "fanny", "fannyflaps", "fannyfucker", "fanyy", "fatass", "fcuk", "fcuker", "fcuking", "feck", "fecker", "felching", "fellate", "fellatio", "fingerfuck", "fingerfucked", "fingerfucker", "fingerfuckers", "fingerfucking", "fingerfucks", "fistfuck", "fistfucked", "fistfucker", "fistfuckers", "fistfucking", "fistfuckings", "fistfucks", "flange", "fook", "fooker", "fuck", "fucka", "fucked", "fucker", "fuckers", "fuckhead", "fuckheads", "fuckin", "fucking", "fuckings", "fuckingshitmotherfucker", "fuckme", "fucks", "fuckwhit", "fuckwit", "fudge packer", "fudgepacker", "fuk", "fuker", "fukker", "fukkin", "fuks", "fukwhit", "fukwit", "fux", "fux0r", "f_u_c_k", "gangbang", "gangbanged", "gangbangs", "gaylord", "gaysex", "goatse", "God", "god-dam", "god-damned", "goddamn", "goddamned", "hardcoresex", "hell", "heshe", "hoar", "hoare", "hoer", "homo", "hore", "horniest", "horny", "hotsex", "jack-off", "jackoff", "jap", "jerk-off", "jism", "jiz", "jizm", "jizz", "kawk", "knob", "knobead", "knobed", "knobend", "knobhead", "knobjocky", "knobjokey", "kock", "kondum", "kondums", "kum", "kummer", "kumming", "kums", "kunilingus", "l3i+ch", "l3itch", "labia", "lust", "lusting", "m0f0", "m0fo", "m45terbate", "ma5terb8", "ma5terbate", "masochist", "master-bate", "masterb8", "masterbat*", "masterbat3", "masterbate", "masterbation", "masterbations", "masturbate", "mo-fo", "mof0", "mofo", "mothafuck", "mothafucka", "mothafuckas", "mothafuckaz", "mothafucked", "mothafucker", "mothafuckers", "mothafuckin", "mothafucking", "mothafuckings", "mothafucks", "mother fucker", "motherfuck", "motherfucked", "motherfucker", "motherfuckers", "motherfuckin", "motherfucking", "motherfuckings", "motherfuckka", "motherfucks", "muff", "mutha", "muthafecker", "muthafuckker", "muther", "mutherfucker", "n1gga", "n1gger", "nazi", "nigg3r", "nigg4h", "nigga", "niggah", "niggas", "niggaz", "nigger", "niggers", "nob", "nob jokey", "nobhead", "nobjocky", "nobjokey", "numbnuts", "nutsack", "orgasim", "orgasims", "orgasm", "orgasms", "p0rn", "pawn", "pecker", "penis", "penisfucker", "phonesex", "phuck", "phuk", "phuked", "phuking", "phukked", "phukking", "phuks", "phuq", "pigfucker", "pimpis", "piss", "pissed", "pisser", "pissers", "pisses", "pissflaps", "pissin", "pissing", "pissoff", "poop", "porn", "porno", "pornography", "pornos", "prick", "pricks", "pron", "pube", "pusse", "pussi", "pussies", "pussy", "pussys", "rectum", "retard", "rimjaw", "rimming", "s hit", "s.o.b.", "sadist", "schlong", "screwing", "scroat", "scrote", "scrotum", "semen", "sex", "sh!+", "sh!t", "sh1t", "shag", "shagger", "shaggin", "shagging", "shemale", "shi+", "shit", "shitdick", "shite", "shited", "shitey", "shitfuck", "shitfull", "shithead", "shiting", "shitings", "shits", "shitted", "shitter", "shitters", "shitting", "shittings", "shitty", "skank", "slut", "sluts", "smegma", "smut", "snatch", "son-of-a-bitch", "spac", "spunk", "s_h_i_t", "t1tt1e5", "t1tties", "teets", "teez", "testical", "testicle", "tit", "titfuck", "tits", "titt", "tittie5", "tittiefucker", "titties", "tittyfuck", "tittywank", "titwank", "tosser", "turd", "tw4t", "twat", "twathead", "twatty", "twunt", "twunter", "v14gra", "v1gra", "vagina", "viagra", "vulva", "w00se", "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "willy", "xrated", "xxx"]
+        let cursedWordsSet = Set(cursedWordsList)
         
-        // Link Regex
-        let linkPattern = "(\\b(https?|ftp|file|http)://[-A-Z0-9+&@#%?=~_|!:,.;]*[-A-Z0-9+&@#%=~_|])"
-        
-        // Discord Link Regex
-        let discordLinkPattern = "(https://)?(www\\.)?(discord\\.gg|discord\\.me|discordapp\\.com/invite|discord\\.com/invite)/([a-z0-9-.]+)?";
-
-        let cursedRegex = try? NSRegularExpression(pattern: cursedPattern, options: .caseInsensitive)
-        let linkRegex = try? NSRegularExpression(pattern: linkPattern, options: .caseInsensitive)
-        let discordLinkRegex = try? NSRegularExpression(pattern: discordLinkPattern, options: .caseInsensitive)
+        // Removed regex compilations for performance
         
         // Pre-compute local emoji map once
         let safeLocalEmojiMap = self.localEmojiMap
@@ -429,7 +422,7 @@ class PackageViewModel: ObservableObject {
                         localByYear[cal.component(.year, from: date), default: 0] += 1
                     }
                     
-                    // Words
+                    // Single-pass optimized parsing
                     let words = content.components(separatedBy: .whitespacesAndNewlines)
                     for word in words {
                         if word.isEmpty { continue }
@@ -439,7 +432,6 @@ class PackageViewModel: ObservableObject {
                         if word.hasPrefix("<") && word.hasSuffix(">") {
                              localEmoteCount += 1
                              localEmojis[word, default: 0] += 1
-                             // DO NOT add to word count
                              continue
                         }
                         
@@ -449,49 +441,32 @@ class PackageViewModel: ObservableObject {
                             continue
                         }
                         
+                        // Check for Cursed Words (O(1))
+                        if cursedWordsSet.contains(w) {
+                            localCursed[w, default: 0] += 1
+                        }
+                        
+                        // Check for Links
+                        if word.lowercased().hasPrefix("http") || word.lowercased().hasPrefix("ftp") || word.lowercased().hasPrefix("file") {
+                             localLinks[word, default: 0] += 1
+                             
+                             // Check for Discord Links
+                             let lcWord = word.lowercased()
+                             if lcWord.contains("discord.gg") || 
+                                lcWord.contains("discord.com/invite") || 
+                                lcWord.contains("discordapp.com/invite") || 
+                                lcWord.contains("discord.me") {
+                                 localDiscordLinks[word, default: 0] += 1
+                             }
+                             continue // Don't count links as words
+                        }
+                        
                         // Valid Word
-                        if !w.isEmpty && w.count > 2 && !w.hasPrefix("http") {
+                        if !w.isEmpty && w.count > 2 {
                              localWordCount += 1 // Count valid words
                              if w.count > 3 { // Statistic threshold for "Favorite Words"
                                  localWords[w, default: 0] += 1
                              }
-                        }
-                    }
-                    
-                    // --- Cursed Words ---
-                    if let regex = cursedRegex {
-                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
-                        for match in matches {
-                            if let range = Range(match.range, in: content) {
-                                let badWord = String(content[range]).lowercased()
-                                localCursed[badWord, default: 0] += 1
-                            }
-                        }
-                    }
-                    
-                    // --- Links ---
-                    if let regex = linkRegex {
-                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
-                        for match in matches {
-                            if let range = Range(match.range, in: content) {
-                                let link = String(content[range])
-                                if link.count > 3 {
-                                    localLinks[link, default: 0] += 1
-                                }
-                            }
-                        }
-                    }
-                    
-                    // --- Discord Links ---
-                    if let regex = discordLinkRegex {
-                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
-                        for match in matches {
-                            if let range = Range(match.range, in: content) {
-                                let dlink = String(content[range])
-                                if dlink.count > 15 {
-                                    localDiscordLinks[dlink, default: 0] += 1
-                                }
-                            }
                         }
                     }
                 }
@@ -513,39 +488,32 @@ class PackageViewModel: ObservableObject {
                             continue
                         }
                         
-                        if !w.isEmpty && w.count > 2 && !w.hasPrefix("http") {
+                        // Cursed Word Check - O(1)
+                        if cursedWordsSet.contains(w) {
+                            stats.cursed[w, default: 0] += 1
+                            continue
+                        }
+                        
+                        // Link Check
+                        if word.lowercased().hasPrefix("http") || word.lowercased().hasPrefix("ftp") || word.lowercased().hasPrefix("file") {
+                             stats.links[word, default: 0] += 1
+                             
+                             // Discord Link Check
+                             let lcWord = word.lowercased()
+                             if lcWord.contains("discord.gg") || 
+                                lcWord.contains("discord.com/invite") || 
+                                lcWord.contains("discordapp.com/invite") || 
+                                lcWord.contains("discord.me") {
+                                 stats.discordLinks[word, default: 0] += 1
+                             }
+                             continue
+                        }
+                        
+                        if !w.isEmpty && w.count > 2 {
                              stats.wordCount += 1
                              if w.count > 3 {
                                  stats.words[w, default: 0] += 1
                              }
-                        }
-                    }
-                    // Regexes (simplified for accumulator performance - re-running regex per message is heavy but necessary for detail)
-                     if let regex = cursedRegex {
-                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
-                        for match in matches {
-                            if let range = Range(match.range, in: content) {
-                                let badWord = String(content[range]).lowercased()
-                                stats.cursed[badWord, default: 0] += 1
-                            }
-                        }
-                    }
-                    if let regex = linkRegex {
-                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
-                        for match in matches {
-                            if let range = Range(match.range, in: content) {
-                                let link = String(content[range])
-                                if link.count > 3 { stats.links[link, default: 0] += 1 }
-                            }
-                        }
-                    }
-                    if let regex = discordLinkRegex {
-                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
-                        for match in matches {
-                            if let range = Range(match.range, in: content) {
-                                let dlink = String(content[range])
-                                if dlink.count > 15 { stats.discordLinks[dlink, default: 0] += 1 }
-                            }
                         }
                     }
                 }
