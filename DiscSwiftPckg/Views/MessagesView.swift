@@ -13,18 +13,24 @@ struct MessagesView: View {
                 
                 // Stats cards
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    MsgStatCard(title: "Total Messages", value: viewModel.formatNumber(viewModel.stats.messageCount), color: .blue)
-                    MsgStatCard(title: "DM Messages", value: viewModel.formatNumber(viewModel.stats.dmMessages), color: .indigo)
-                    MsgStatCard(title: "Server Messages", value: viewModel.formatNumber(viewModel.stats.serverMessages), color: .orange)
-                    MsgStatCard(title: "Total Words", value: viewModel.formatNumber(viewModel.stats.wordCount), color: .purple)
-                    MsgStatCard(title: "Conversations", value: "\(viewModel.stats.dmConversations + viewModel.stats.groupDMCount)", color: .pink)
-                    MsgStatCard(title: "Channels Used", value: "\(viewModel.stats.serverChannelCount)", color: .green)
+                    MsgStatCard(title: "Total Messages", value: viewModel.formatNumber(viewModel.stats.messageCount), icon: "bubble.left.and.bubble.right.fill", color: .blue)
+                    MsgStatCard(title: "DM Messages", value: viewModel.formatNumber(viewModel.stats.dmMessages), icon: "person.2.fill", color: .indigo)
+                    MsgStatCard(title: "Server Messages", value: viewModel.formatNumber(viewModel.stats.serverMessages), icon: "server.rack", color: .orange)
+                    MsgStatCard(title: "Total Words", value: viewModel.formatNumber(viewModel.stats.wordCount), icon: "text.quote", color: .purple)
+                    MsgStatCard(title: "Conversations", value: "\(viewModel.stats.dmConversations + viewModel.stats.groupDMCount)", icon: "bubble.left.fill", color: .pink)
+                    MsgStatCard(title: "Channels Used", value: "\(viewModel.stats.serverChannelCount)", icon: "number", color: .green)
                 }
                 
                 // Top DMs
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Top DM Conversations")
-                        .font(.system(size: 16, weight: .semibold))
+                    HStack {
+                        Image(systemName: "person.2.wave.2.fill")
+                            .foregroundStyle(Theme.accent)
+                        Text("Top DM Conversations")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                    .padding(.bottom, 4)
                     
                     if viewModel.stats.topDMs.isEmpty {
                         Text("No DM data available")
@@ -38,12 +44,18 @@ struct MessagesView: View {
                 }
                 .padding(20)
                 .background(Theme.bgSecondary)
-                .cornerRadius(12)
+                .cornerRadius(16)
                 
                 // Top Servers
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Top Servers")
-                        .font(.system(size: 16, weight: .semibold))
+                    HStack {
+                        Image(systemName: "server.rack")
+                            .foregroundStyle(Theme.accent)
+                        Text("Top Servers")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                    .padding(.bottom, 4)
                     
                     if viewModel.stats.topServers.isEmpty {
                         Text("No server data available")
@@ -57,7 +69,7 @@ struct MessagesView: View {
                 }
                 .padding(20)
                 .background(Theme.bgSecondary)
-                .cornerRadius(12)
+                .cornerRadius(16)
                 
                 
                 // --- Word Analysis Section ---
@@ -66,12 +78,12 @@ struct MessagesView: View {
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.top, 16)
                 
-                HStack(alignment: .top, spacing: 16) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                     // Top Words
-                    StatsList(title: "Favorite Words", data: viewModel.stats.topWords)
+                    RichAnalysisCard(title: "Favorite Words", icon: "text.quote", data: viewModel.stats.topWords, color: .blue)
                     
                     // Cursed Words
-                    StatsList(title: "Cursed Words", data: viewModel.stats.topCursedWords)
+                    RichAnalysisCard(title: "Cursed Words", icon: "exclamationmark.triangle.fill", data: viewModel.stats.topCursedWords, color: .red)
                 }
                 
                 // --- Link Analysis Section ---
@@ -80,12 +92,12 @@ struct MessagesView: View {
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.top, 16)
                 
-                HStack(alignment: .top, spacing: 16) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                     // Top Links
-                    StatsList(title: "Top Links", data: viewModel.stats.topLinks)
+                    RichAnalysisCard(title: "Top Links", icon: "link", data: viewModel.stats.topLinks, color: .cyan)
                     
                     // Discord Links
-                    StatsList(title: "Discord Invites", data: viewModel.stats.topDiscordLinks)
+                    RichAnalysisCard(title: "Discord Invites", icon: "person.badge.plus", data: viewModel.stats.topDiscordLinks, color: .indigo)
                 }
                 
                 Spacer(minLength: 40)
@@ -97,49 +109,70 @@ struct MessagesView: View {
 }
 
 // Helper View for Lists
-struct StatsList: View {
+struct RichAnalysisCard: View {
     let title: String
+    let icon: String // Added icon
     let data: [(String, Int)]
+    let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.system(size: 16, weight: .semibold))
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                    .font(.system(size: 14, weight: .semibold))
+                    .padding(6)
+                    .background(color.opacity(0.1))
+                    .clipShape(Circle())
+                
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                
+                Spacer()
+            }
             
             if data.isEmpty {
                 Text("No data available")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
+                    .padding(.vertical, 8)
             } else {
-                ForEach(Array(data.prefix(10).enumerated()), id: \.offset) { idx, item in
-                    HStack {
-                        Text("\(idx + 1)")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(Theme.accent)
-                            .frame(width: 24)
-                        
-                        Text(item.0)
-                            .font(.system(size: 13))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        
-                        Spacer()
-                        
-                        Text("\(item.1)")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Theme.textSecondary)
+                VStack(spacing: 8) {
+                    ForEach(Array(data.prefix(10).enumerated()), id: \.offset) { idx, item in
+                        HStack {
+                            Text("\(idx + 1)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(color.opacity(0.8))
+                                .frame(width: 20)
+                            
+                            Text(item.0)
+                                .font(.system(size: 13, weight: .medium))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(Theme.textPrimary)
+                            
+                            Spacer()
+                            
+                            Text("\(item.1)")
+                                .font(.system(size: 12, weight: .semibold)) // Bold count
+                                .foregroundStyle(Theme.textSecondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Theme.bgTertiary)
+                                .cornerRadius(4)
+                        }
+                        .padding(8)
+                        .background(idx % 2 == 0 ? Theme.bgTertiary.opacity(0.5) : .clear)
+                        .cornerRadius(6)
                     }
-                    .padding(10)
-                    .background(idx % 2 == 0 ? Theme.bgSecondary : .clear)
-                    .cornerRadius(8)
                 }
             }
         }
-        .padding(20)
+        .padding(16)
         .background(Theme.bgSecondary)
-        .cornerRadius(12)
+        .cornerRadius(16) // Rounder corners
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }
@@ -147,21 +180,38 @@ struct StatsList: View {
 struct MsgStatCard: View {
     let title: String
     let value: String
+    let icon: String // Added icon
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(value)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(color)
-            Text(title)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.textSecondary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundStyle(color)
+                    .padding(8)
+                    .background(color.opacity(0.15))
+                    .clipShape(Circle())
+                Spacer()
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 24, weight: .bold)) // Slightly smaller but bolder
+                    .foregroundStyle(Theme.textPrimary)
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.bgSecondary)
-        .cornerRadius(12)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(color.opacity(0.1), lineWidth: 1)
+        )
     }
 }
 

@@ -9,6 +9,9 @@ struct DiscordStats {
     var blockedCount: Int = 0
     var noteCount: Int = 0
     var recentAvatars: [URL] = []
+    var bots: [DiscordBot] = []
+    var payments: [DiscordPayment] = []
+    var tickets: [DiscordTicket] = []
     
     
     // Message stats
@@ -23,6 +26,7 @@ struct DiscordStats {
     // Activity by time
     var messagesByHour: [Int] = Array(repeating: 0, count: 24)
     var messagesByDay: [Int] = Array(repeating: 0, count: 7) // Mon-Sun
+    var messagesByMonth: [Int] = Array(repeating: 0, count: 12) // Jan-Dec
     var messagesByYear: [Int: Int] = [:]
     
     // Top lists

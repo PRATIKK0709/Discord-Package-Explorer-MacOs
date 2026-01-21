@@ -61,6 +61,10 @@ class PackageViewModel: ObservableObject {
         updateProgress(0.1, "Loading servers...")
         parseServers(at: root)
         
+        // 2.5 Parse Bots
+        updateProgress(0.12, "Loading bots...")
+        parseBots(at: root)
+        
         // 3. Parse messages - Discord-Package style
         updateProgress(0.15, "Processing messages...")
         parseMessagesDiscordPackageStyle(at: root)
@@ -68,6 +72,10 @@ class PackageViewModel: ObservableObject {
         // 4. Parse analytics if available
         updateProgress(0.9, "Parsing analytics...")
         parseAnalytics(at: root)
+        
+        // 5. Parse Tickets
+        updateProgress(0.95, "Loading tickets...")
+        parseTickets(at: root)
         
         updateProgress(1.0, "Complete!")
         
@@ -95,6 +103,28 @@ class PackageViewModel: ObservableObject {
             let avatarHash = json["avatar_hash"] as? String
             let globalName = json["global_name"] as? String
             
+            // Payments
+            var paymentsList: [DiscordPayment] = []
+            var totalSpent: [String: Double] = [:]
+            var paymentCount = 0
+            
+            if let paymentsRaw = json["payments"] {
+                if let data = try? JSONSerialization.data(withJSONObject: paymentsRaw),
+                   let parsed = try? JSONDecoder().decode([DiscordPayment].self, from: data) {
+                    paymentsList = parsed
+                    
+                    let confirmed = paymentsList.filter { $0.status == 1 }
+                    paymentCount = confirmed.count
+                    
+                    for p in confirmed {
+                        if let amt = p.amount, let cur = p.currency {
+                            totalSpent[cur, default: 0] += Double(amt) / 100.0
+                        }
+                    }
+                }
+            }
+
+
             // Create user
             let user = DiscordUser(
                 id: userId,
@@ -108,7 +138,7 @@ class PackageViewModel: ObservableObject {
                 premiumType: json["premium_type"] as? Int,
                 flags: json["flags"] as? Int,
                 avatarHash: avatarHash,
-                payments: nil
+                payments: paymentsList
             )
             
             // Connections
@@ -129,18 +159,9 @@ class PackageViewModel: ObservableObject {
                 blockedCount = rels.filter { ($0["type"] as? Int) == 2 }.count
             }
             
-            // Payments
-            var totalSpent: [String: Double] = [:]
-            var paymentCount = 0
-            if let payments = json["payments"] as? [[String: Any]] {
-                let confirmed = payments.filter { ($0["status"] as? Int) == 1 }
-                paymentCount = confirmed.count
-                for p in confirmed {
-                    if let amt = p["amount"] as? Int, let cur = p["currency"] as? String {
-                        totalSpent[cur, default: 0] += Double(amt) / 100.0
-                    }
-                }
-            }
+
+
+
             
             DispatchQueue.main.async { [weak self] in
                 self?.stats.user = user
@@ -149,6 +170,7 @@ class PackageViewModel: ObservableObject {
                 self?.stats.blockedCount = blockedCount
                 self?.stats.totalSpent = totalSpent
                 self?.stats.paymentCount = paymentCount
+                self?.stats.payments = paymentsList
             }
             
             // Scan for recent avatars history
@@ -173,12 +195,68 @@ class PackageViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Parse Tickets
+    
+    private func parseTickets(at root: URL) {
+        // Support_Tickets/tickets.json
+        for folder in ["Support_Tickets", "support_tickets", "Tickets", "tickets"] {
+            let path = root.appendingPathComponent("\(folder)/tickets.json")
+            if let data = try? Data(contentsOf: path),
+               let tickets = try? JSONDecoder().decode([DiscordTicket].self, from: data) {
+                
+                DispatchQueue.main.async { [weak self] in
+                    self?.stats.tickets = tickets
+                }
+                log("Found \(tickets.count) tickets")
+                return
+            }
+        }
+    }
+    
+    // MARK: - Parse Bots
+    
+    private func parseBots(at root: URL) {
+        // Try Account/applications
+        for folder in ["Account", "account", "Compte"] {
+            let appsPath = root.appendingPathComponent("\(folder)/applications")
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: appsPath.path, isDirectory: &isDir), isDir.boolValue else { continue }
+            
+            guard let appFolders = try? FileManager.default.contentsOfDirectory(at: appsPath, includingPropertiesForKeys: nil) else { continue }
+            
+            var bots: [DiscordBot] = []
+            
+            for appFolder in appFolders {
+                let jsonPath = appFolder.appendingPathComponent("application.json")
+                if let data = try? Data(contentsOf: jsonPath),
+                   var bot = try? JSONDecoder().decode(DiscordBot.self, from: data) {
+                    
+                    // Look for local icon
+                    let iconTypes = ["icon.png", "bot-avatar.png", "app-icon.png"]
+                    for iconName in iconTypes {
+                        let iconPath = appFolder.appendingPathComponent(iconName)
+                        if FileManager.default.fileExists(atPath: iconPath.path) {
+                            bot.localIconURL = iconPath
+                            break
+                        }
+                    }
+                    
+                    bots.append(bot)
+                }
+            }
+            
+            DispatchQueue.main.async { [weak self] in
+                self?.stats.bots = bots
+            }
+            log("Found \(bots.count) bots")
+            return // Found the folder, stop checking variants
+        }
+    }
+
     // MARK: - Parse Servers
     
     // Local cache for emojis found in package
     private var localEmojiMap: [String: URL] = [:]
-    
-    // MARK: - Parse Servers
     
     private func parseServers(at root: URL) {
         // 1. Index local emojis first
@@ -236,18 +314,33 @@ class PackageViewModel: ObservableObject {
         let serversRoot = root.appendingPathComponent("Servers")
         let messagesRoot = root.appendingPathComponent("messages") // DMs or old format
         
-        var foldersToScan: [URL] = []
+        var serverFoldersToScan: [URL] = []
         
         if FileManager.default.fileExists(atPath: serversRoot.path),
            let serverFolders = try? FileManager.default.contentsOfDirectory(at: serversRoot, includingPropertiesForKeys: nil) {
-            foldersToScan.append(contentsOf: serverFolders)
+            serverFoldersToScan.append(contentsOf: serverFolders)
         }
         
-        if FileManager.default.fileExists(atPath: messagesRoot.path) {
-            foldersToScan.append(messagesRoot)
+        // 2. Build Flat List of Channels (for batching)
+        // We need to traverse Servers/GuildID -> [ChannelID] and also messages/ -> [ChannelID]
+        var allChannelFolders: [URL] = []
+        
+        // Add DM folders
+        if FileManager.default.fileExists(atPath: messagesRoot.path),
+           let dmFolders = try? FileManager.default.contentsOfDirectory(at: messagesRoot, includingPropertiesForKeys: nil) {
+            allChannelFolders.append(contentsOf: dmFolders)
         }
         
-        // 2. Prepare thread-safe aggregation
+        // Add Server Channel folders
+        for serverFolder in serverFoldersToScan {
+            if let channels = try? FileManager.default.contentsOfDirectory(at: serverFolder, includingPropertiesForKeys: nil) {
+                // Filter only directories if needed, but FileManager returns all.
+                // We assume subfolders in Servers/GuildID are channels.
+                allChannelFolders.append(contentsOf: channels)
+            }
+        }
+        
+        // 3. Prepare thread-safe aggregation
         let lock = NSLock()
         
         // Helper struct for detailed aggregation
@@ -283,6 +376,7 @@ class PackageViewModel: ObservableObject {
         
         var msgByHour = [Int](repeating: 0, count: 24)
         var msgByDay = [Int](repeating: 0, count: 7)
+        var msgByMonth = [Int](repeating: 0, count: 12)
         var msgByYear = [Int: Int]()
         
         var wordCounts = [String: Int]()
@@ -297,6 +391,7 @@ class PackageViewModel: ObservableObject {
         var dmStats = [String: StatsAccumulator]()
         
         var dmChannelInfos = [String: String]() // Channel ID -> Name (for final mapping)
+        var dmChannelIds = Set<String>() // Set of DM channel IDs encountered
         
         // --- REGEX SETUP ---
         // Pre-compute cursed words set for O(1) lookup
@@ -310,318 +405,312 @@ class PackageViewModel: ObservableObject {
         // Load message index for naming DMs or Channels if needed
         let loadedMessageIndex = (try? JSONSerialization.jsonObject(with: Data(contentsOf: messagesRoot.appendingPathComponent("index.json")))) as? [String: String] ?? [:]
         
-        // 3. Concurrent Execution
-        DispatchQueue.concurrentPerform(iterations: foldersToScan.count) { i in
-            let folder = foldersToScan[i]
-            
-            // Local accumulators
-            var localMsgCount = 0
-            var localWordCount = 0
-            var localCharCount = 0
-            var localFileCount = 0
-            var localEmoteCount = 0
-            var localMentionCount = 0
-            
-            var localByHour = [Int](repeating: 0, count: 24)
-            var localByDay = [Int](repeating: 0, count: 7)
-            var localByYear = [Int: Int]()
-            
-            var localWords = [String: Int]()
-            var localEmojis = [String: Int]()
-            var localCursed = [String: Int]()
-            var localLinks = [String: Int]()
-            var localDiscordLinks = [String: Int]()
-            
-            // Detailed Local Accumulators
-            // We need to track which channel ID contributes to which Guild locally
-            var localServerStats = [String: StatsAccumulator]()
-            var localDMStats = [String: StatsAccumulator]()
-            
-            // Map Channel ID -> Guild ID (if found in channel.json)
-            var channelToGuild = [String: String]()
-            // Set of DM channel IDs encountered
-            var dmChannelIds = Set<String>()
-            
-            let channelFolders: [URL]
-            if let sub = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) {
-                channelFolders = sub
-            } else {
-                return
-            }
-            
-            // Robust Date Parsers (Local to thread)
-            // 1. ISO8601 with fractional seconds (Discord Standard)
-            let isoFormatter = ISO8601DateFormatter()
-            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            // 2. Simple fallback
-            let simpleFormatter = DateFormatter()
-            simpleFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.dS"
-            simpleFormatter.locale = Locale(identifier: "en_US_POSIX")
-            // 3. Another fallback
-            let fallbackFormatter = DateFormatter()
-            fallbackFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            fallbackFormatter.locale = Locale(identifier: "en_US_POSIX")
-            
-            func parseDate(_ ts: String) -> Date? {
-                if let d = isoFormatter.date(from: ts) { return d }
-                // Try truncating potential 6-digit micros which ISO8601 sometimes chokes on if setup for millis
-                // Actually ISO8601DateFormatter handles 3 digits mostly.
-                if let d = simpleFormatter.date(from: ts) { return d }
-                return fallbackFormatter.date(from: ts)
-            }
-            
-            for channel in channelFolders {
-                // Determine Channel Info
-                let chJsonPath = channel.appendingPathComponent("channel.json")
-                var chId = channel.lastPathComponent
-                var isDM = false
-                var guildId: String? = nil
+        // 3. Batched Concurrent Execution
+        log("Scanning \(allChannelFolders.count) channels with optimized batching...")
+        
+        let batchSize = 20 // Process 20 channels concurrently max
+        let chunks = stride(from: 0, to: allChannelFolders.count, by: batchSize).map {
+            Array(allChannelFolders[$0..<min($0 + batchSize, allChannelFolders.count)])
+        }
+        
+        let queue = DispatchQueue(label: "com.discswift.messages", attributes: .concurrent)
+        let group = DispatchGroup()
+        
+        for (index, chunk) in chunks.enumerated() {
+            group.enter()
+            queue.async { [weak self] in
+                defer { group.leave() }
                 
-                // Try reading channel.json
-                if let chData = try? Data(contentsOf: chJsonPath),
-                   let chJson = try? JSONSerialization.jsonObject(with: chData) as? [String: Any] {
+                for folder in chunk {
+                    var localMsgCount = 0
+                    var localWordCount = 0
+                    var localCharCount = 0
+                    var localFileCount = 0
+                    var localEmoteCount = 0
+                    var localMentionCount = 0
                     
-                    chId = chJson["id"] as? String ?? chId
+                    var localByHour = [Int](repeating: 0, count: 24)
+                    var localByDay = [Int](repeating: 0, count: 7)
+                    var localByMonth = [Int](repeating: 0, count: 12)
+                    var localByYear: [Int: Int] = [:]
                     
-                    // Check for Guild ID directly or in 'guild' object
-                    if let gid = chJson["guild_id"] as? String {
-                        guildId = gid
-                    } else if let guildObj = chJson["guild"] as? [String: Any], let gid = guildObj["id"] as? String {
-                        guildId = gid
+                    var localWords: [String: Int] = [:]
+                    var localEmojis: [String: Int] = [:]
+                    var localCursed: [String: Int] = [:]
+                    var localLinks: [String: Int] = [:]
+                    var localDiscordLinks: [String: Int] = [:]
+                    
+                    // Detailed Stats Accumulators
+                    var localServerStats: [String: StatsAccumulator] = [:]
+                    var localDMStats: [String: StatsAccumulator] = [:]
+                    
+                    var chId = folder.lastPathComponent
+                    let channelFile = folder.appendingPathComponent("channel.json")
+                    let messagesFile = folder.appendingPathComponent("messages.csv")
+                    let jsonFile = folder.appendingPathComponent("messages.json")
+                    
+                    // Determine Context (DM vs Server)
+                    var isDM = false
+                    var guildId: String? = nil
+                    
+                    if let cData = try? Data(contentsOf: channelFile),
+                       let cJson = try? JSONSerialization.jsonObject(with: cData) as? [String: Any] {
+                        if let type = cJson["type"] as? Int, (type == 1 || type == 3) {
+                            isDM = true
+                        }
+                        if let gid = cJson["guild_id"] as? String {
+                            guildId = gid
+                        }
+                        // If we have an ID in channel.json, use it
+                        if let cid = cJson["id"] as? String {
+                            chId = cid
+                        }
                     }
                     
-                    // Check DM
-                    if let type = chJson["type"] as? Int {
-                        if type == 1 || type == 3 { isDM = true } // 1=DM, 3=GroupDM
-                    } else if let recipients = chJson["recipients"] as? [String], !recipients.isEmpty {
-                         // Fallback logic
-                         isDM = true
-                    }
-                }
-                
-                // If we didn't find specific guild info, but we are inside "Servers/{GuildID}", use that
-                if guildId == nil && folder.path.contains("/Servers") {
-                     guildId = folder.lastPathComponent
-                }
-                
-                let messagesFile = channel.appendingPathComponent("messages.csv")
-                let jsonFile = channel.appendingPathComponent("messages.json")
-                
-                var channelMsgCount = 0
-                
-                // Helper to process a message
-                func processMessage(_ content: String, _ timestamp: String) {
-                    channelMsgCount += 1
-                    localCharCount += content.count
-                    
-                    // Time
-                    if let date = parseDate(timestamp) {
-                        let cal = Calendar.current
-                        localByHour[cal.component(.hour, from: date)] += 1
-                        localByDay[(cal.component(.weekday, from: date) + 5) % 7] += 1
-                        localByYear[cal.component(.year, from: date), default: 0] += 1
-                    }
-                    
-                    // Single-pass optimized parsing
-                    let words = content.components(separatedBy: .whitespacesAndNewlines)
-                    for word in words {
-                        if word.isEmpty { continue }
-                        let w = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
-                        
-                        // Check for Emoji
-                        if word.hasPrefix("<") && word.hasSuffix(">") {
-                             localEmoteCount += 1
-                             localEmojis[word, default: 0] += 1
-                             continue
-                        }
-                        
-                        // Check for Mention
-                        if word.hasPrefix("<@") {
-                            localMentionCount += 1
-                            continue
-                        }
-                        
-                        // Check for Cursed Words (O(1))
-                        if cursedWordsSet.contains(w) {
-                            localCursed[w, default: 0] += 1
-                        }
-                        
-                        // Check for Links
-                        if word.lowercased().hasPrefix("http") || word.lowercased().hasPrefix("ftp") || word.lowercased().hasPrefix("file") {
-                             localLinks[word, default: 0] += 1
-                             
-                             // Check for Discord Links
-                             let lcWord = word.lowercased()
-                             if lcWord.contains("discord.gg") || 
-                                lcWord.contains("discord.com/invite") || 
-                                lcWord.contains("discordapp.com/invite") || 
-                                lcWord.contains("discord.me") {
-                                 localDiscordLinks[word, default: 0] += 1
-                             }
-                             continue // Don't count links as words
-                        }
-                        
-                        // Valid Word
-                        if !w.isEmpty && w.count > 2 {
-                             localWordCount += 1 // Count valid words
-                             if w.count > 3 { // Statistic threshold for "Favorite Words"
-                                 localWords[w, default: 0] += 1
+                    // Fallback to folder structure if guildId missing
+                    // Robust check: Search for "servers" casing-insensitively
+                    if guildId == nil {
+                        let pathLower = folder.path.lowercased()
+                        if pathLower.contains("/servers") {
+                             // Attempt to find parent folder name as Guild ID
+                             let components = folder.pathComponents
+                             // Find index of "Servers" (case insensitive)
+                             if let idx = components.lastIndex(where: { $0.caseInsensitiveCompare("servers") == .orderedSame }),
+                                idx + 2 < components.count {
+                                  // Found it! Parent of this folder is GuildID
+                                  // structure: .../Servers/GuildID/ChannelID
+                                  if components[idx].caseInsensitiveCompare("servers") == .orderedSame {
+                                      guildId = components[idx+1]
+                                  }
                              }
                         }
+                        
+                        // Legacy/Fallback Logic: Try to extract Server Name from index.json name
+                        // Pattern: "channel-name in Server Name"
+                        if guildId == nil, let name = loadedMessageIndex[chId] {
+                            if let range = name.range(of: " in ", options: .backwards) {
+                                let serverName = String(name[range.upperBound...])
+                                if !serverName.isEmpty {
+                                    // Use Server Name as a Virtual Guild ID
+                                    guildId = serverName
+                                }
+                            }
+                        }
                     }
-                }
-                
-                
-                // Helper to update specific accumulator
-                func updateStats(_ stats: inout StatsAccumulator, _ content: String) {
-                    stats.messageCount += 1
-                    stats.charCount += content.count
                     
-                    let words = content.components(separatedBy: .whitespacesAndNewlines)
-                    for word in words {
-                        if word.isEmpty { continue }
-                        let w = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+                    var channelMsgCount = 0
+                    
+                    // Helper to process content
+                    func processMessage(_ content: String, _ timestamp: String) {
+                        channelMsgCount += 1
+                        localCharCount += content.count
                         
-                        // Emoji
-                        if word.hasPrefix("<") && word.hasSuffix(">") {
-                            stats.emojis[word, default: 0] += 1
-                            continue
+                        if let date = self?.parseDate(timestamp) {
+                            let cal = Calendar.current
+                            localByHour[cal.component(.hour, from: date)] += 1
+                            localByDay[(cal.component(.weekday, from: date) + 5) % 7] += 1
+                            localByMonth[cal.component(.month, from: date) - 1] += 1
+                            localByYear[cal.component(.year, from: date), default: 0] += 1
                         }
                         
-                        // Cursed Word Check - O(1)
-                        if cursedWordsSet.contains(w) {
-                            stats.cursed[w, default: 0] += 1
-                            continue
-                        }
-                        
-                        // Link Check
-                        if word.lowercased().hasPrefix("http") || word.lowercased().hasPrefix("ftp") || word.lowercased().hasPrefix("file") {
-                             stats.links[word, default: 0] += 1
-                             
-                             // Discord Link Check
-                             let lcWord = word.lowercased()
-                             if lcWord.contains("discord.gg") || 
-                                lcWord.contains("discord.com/invite") || 
-                                lcWord.contains("discordapp.com/invite") || 
-                                lcWord.contains("discord.me") {
-                                 stats.discordLinks[word, default: 0] += 1
-                             }
-                             continue
-                        }
-                        
-                        if !w.isEmpty && w.count > 2 {
-                             stats.wordCount += 1
-                             if w.count > 3 {
-                                 stats.words[w, default: 0] += 1
-                             }
+                        // Single-pass optimized parsing
+                        let words = content.components(separatedBy: .whitespacesAndNewlines)
+                        for word in words {
+                            if word.isEmpty { continue }
+                            let w = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+                            
+                            // Check for Emoji
+                            if word.hasPrefix("<") && word.hasSuffix(">") {
+                                 localEmoteCount += 1
+                                 localEmojis[word, default: 0] += 1
+                                 continue
+                            }
+                            
+                            // Check for Mention
+                            if word.hasPrefix("<@") {
+                                localMentionCount += 1
+                                continue
+                            }
+                            
+                            // Check for Cursed Words (O(1))
+                            if cursedWordsSet.contains(w) {
+                                localCursed[w, default: 0] += 1
+                            }
+                            
+                            // Check for Links
+                            if w.hasPrefix("http") {
+                                 localLinks[w, default: 0] += 1
+                                 
+                                 // Check for Discord Links
+                                 if w.contains("discord.gg") || w.contains("discord.com/invite") {
+                                     localDiscordLinks[w, default: 0] += 1
+                                 }
+                                 continue // Don't count links as words
+                            }
+                            
+                            // Valid Word
+                            if !w.isEmpty && w.count > 2 {
+                                 localMsgCount = localMsgCount + 0 // No-op, just to use var
+                                 localWordCount += 1 // Count valid words
+                                 if w.count > 3 { // Statistic threshold for "Favorite Words"
+                                     localWords[w, default: 0] += 1
+                                 }
+                            }
                         }
                     }
-                }
-
-                // --- CSV PARSING ---
-                if FileManager.default.fileExists(atPath: messagesFile.path) {
-                    if let content = try? String(contentsOf: messagesFile, encoding: .utf8) {
-                        let lines = content.components(separatedBy: .newlines)
-                        for (idx, line) in lines.enumerated() {
-                            if idx == 0 || line.isEmpty { continue }
-                            let parts = line.components(separatedBy: ",")
-                            if parts.count >= 3 {
-                                // CSV: ID,Timestamp,Contents,Attachments
-                                let timestampStr = parts[1]
-                                let contentStr = parts.dropFirst(2).joined(separator: ",")
-                                
-                                processMessage(contentStr, timestampStr)
-                                
-                                // Accumulate Detailed Stats
-                                if channelMsgCount > 0 { // Just processed
-                                    if let gid = guildId {
-                                        updateStats(&localServerStats[gid, default: StatsAccumulator()], contentStr)
-                                    } else if isDM {
-                                        updateStats(&localDMStats[chId, default: StatsAccumulator()], contentStr)
-                                    } else {
-                                        // Fallback
-                                        if !folder.path.contains("/Servers") {
+                    
+                    // Helper to update specific accumulator structure
+                    func updateStats(_ stats: inout StatsAccumulator, _ content: String) {
+                        stats.messageCount += 1
+                        stats.charCount += content.count
+                        
+                        let words = content.components(separatedBy: .whitespacesAndNewlines)
+                        for word in words {
+                            if word.isEmpty { continue }
+                            let w = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+                            
+                            if word.hasPrefix("<") && word.hasSuffix(">") {
+                                stats.emojis[word, default: 0] += 1
+                                continue
+                            }
+                            
+                            if cursedWordsSet.contains(w) { stats.cursed[w, default: 0] += 1; continue }
+                            
+                            if w.hasPrefix("http") {
+                                 stats.links[w, default: 0] += 1
+                                 if w.contains("discord.gg") || w.contains("discord.com/invite") {
+                                     stats.discordLinks[w, default: 0] += 1
+                                 }
+                                 continue
+                            }
+                            
+                            if !w.isEmpty && w.count > 2 {
+                                 stats.wordCount += 1
+                                 if w.count > 3 { stats.words[w, default: 0] += 1 }
+                            }
+                        }
+                    }
+    
+                    // --- CSV PARSING ---
+                    if FileManager.default.fileExists(atPath: messagesFile.path) {
+                        if let content = try? String(contentsOf: messagesFile, encoding: .utf8) {
+                            let lines = content.components(separatedBy: .newlines)
+                            for (idx, line) in lines.enumerated() {
+                                if idx == 0 || line.isEmpty { continue }
+                                let parts = line.components(separatedBy: ",")
+                                if parts.count >= 3 {
+                                    // CSV: ID,Timestamp,Contents,Attachments
+                                    let timestampStr = parts[1]
+                                    let contentStr = parts.dropFirst(2).joined(separator: ",")
+                                    
+                                    processMessage(contentStr, timestampStr)
+                                    
+                                    // Accumulate Detailed Stats
+                                    if channelMsgCount > 0 { // Just processed
+                                        if let gid = guildId {
+                                            updateStats(&localServerStats[gid, default: StatsAccumulator()], contentStr)
+                                        } else if isDM {
                                             updateStats(&localDMStats[chId, default: StatsAccumulator()], contentStr)
+                                        } else {
+                                            // Fallback
+                                            let pathLower = folder.path.lowercased()
+                                            if !pathLower.contains("/servers") {
+                                                updateStats(&localDMStats[chId, default: StatsAccumulator()], contentStr)
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
-                // --- JSON PARSING ---
-                else if FileManager.default.fileExists(atPath: jsonFile.path) {
-                    if let data = try? Data(contentsOf: jsonFile),
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                        for msg in json {
-                           if let content = msg["Contents"] as? String, let ts = msg["Timestamp"] as? String {
-                               processMessage(content, ts)
-                               
-                               // Accumulate Detailed Stats
-                                if let gid = guildId {
-                                    updateStats(&localServerStats[gid, default: StatsAccumulator()], content)
-                                } else if isDM {
-                                    updateStats(&localDMStats[chId, default: StatsAccumulator()], content)
-                                } else {
-                                    // Fallback
-                                    if !folder.path.contains("/Servers") {
+                    // --- JSON PARSING (Optimized) ---
+                    else if FileManager.default.fileExists(atPath: jsonFile.path) {
+                         // Improved: Use mappedIfSafe for memory
+                        if let data = try? Data(contentsOf: jsonFile, options: .mappedIfSafe),
+                           let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                            for msg in json {
+                               if let content = msg["Contents"] as? String, let ts = msg["Timestamp"] as? String {
+                                   processMessage(content, ts)
+                                   
+                                   // Accumulate Detailed Stats
+                                    if let gid = guildId {
+                                        updateStats(&localServerStats[gid, default: StatsAccumulator()], content)
+                                    } else if isDM {
                                         updateStats(&localDMStats[chId, default: StatsAccumulator()], content)
+                                    } else {
+                                        // Fallback
+                                        let pathLower = folder.path.lowercased()
+                                        if !pathLower.contains("/servers") {
+                                            updateStats(&localDMStats[chId, default: StatsAccumulator()], content)
+                                        }
                                     }
-                                }
-                           }
-                           if let attachments = msg["Attachments"] as? String, !attachments.isEmpty {
-                               localFileCount += 1
-                           }
+                               }
+                               if let attachments = msg["Attachments"] as? String, !attachments.isEmpty {
+                                   localFileCount += 1
+                               }
+                            }
                         }
                     }
+                    
+                    localMsgCount = channelMsgCount // Sync
+                    
+                    // Merge thread results
+                    lock.lock()
+                    totalMessages += localMsgCount
+                    totalWords += localWordCount
+                    totalChars += localCharCount
+                    totalFiles += localFileCount
+                    totalEmotes += localEmoteCount
+                    totalMentions += localMentionCount
+                    
+                    for h in 0..<24 { msgByHour[h] += localByHour[h] }
+                    for d in 0..<7 { msgByDay[d] += localByDay[d] }
+                    for m in 0..<12 { msgByMonth[m] += localByMonth[m] }
+                    for (y, c) in localByYear { msgByYear[y, default: 0] += c }
+                    
+                    for (w, c) in localWords { wordCounts[w, default: 0] += c }
+                    for (e, c) in localEmojis { emojiCounts[e, default: 0] += c }
+                    
+                    for (w, c) in localCursed { cursedCounts[w, default: 0] += c }
+                    for (w, c) in localLinks { linkCounts[w, default: 0] += c }
+                    for (w, c) in localDiscordLinks { discordLinkCounts[w, default: 0] += c }
+                    
+                    for (gid, acc) in localServerStats {
+                        serverStats[gid, default: StatsAccumulator()].merge(other: acc)
+                    }
+                    for (dmid, acc) in localDMStats {
+                        dmStats[dmid, default: StatsAccumulator()].merge(other: acc)
+                        
+                        // FIX: Correctly update DM Channel Info in valid scope
+                        if dmChannelInfos[dmid] == nil {
+                             dmChannelInfos[dmid] = loadedMessageIndex[dmid] ?? "Unknown DM"
+                        }
+                    }
+                    
+                    // Also track loose DM IDs
+                    if channelMsgCount > 0 && isDM {
+                         dmChannelIds.insert(chId)
+                    } else if channelMsgCount > 0 && guildId == nil {
+                         // Check path one last time
+                         let pathLower = folder.path.lowercased()
+                         if !pathLower.contains("/servers") {
+                             dmChannelIds.insert(chId)
+                         }
+                    }
+                    lock.unlock()
                 }
                 
-                localMsgCount += channelMsgCount
-                
-                // Record Stats for later merging (identifying DMs name)
-                if channelMsgCount > 0 && isDM {
-                     dmChannelIds.insert(chId)
-                } else if channelMsgCount > 0 && !folder.path.contains("/Servers") && guildId == nil {
-                     dmChannelIds.insert(chId)
+                // Progress logging
+                if index % 5 == 0 {
+                    let progress = Double(index * batchSize) / Double(allChannelFolders.count) * 100
+                    let uiProgress = 0.15 + (progress / 100.0) * 0.75
+                    self?.log(String(format: "Messages Progress: %.1f%%", progress))
+                    self?.updateProgress(uiProgress, String(format: "Processing messages... %.0f%%", progress))
                 }
             }
-            
-            // Merge thread results
-            lock.lock()
-            totalMessages += localMsgCount
-            totalWords += localWordCount
-            totalChars += localCharCount
-            totalFiles += localFileCount
-            totalEmotes += localEmoteCount
-            totalMentions += localMentionCount
-            
-            for h in 0..<24 { msgByHour[h] += localByHour[h] }
-            for d in 0..<7 { msgByDay[d] += localByDay[d] }
-            for (y, c) in localByYear { msgByYear[y, default: 0] += c }
-            
-            for (w, c) in localWords { wordCounts[w, default: 0] += c }
-            for (e, c) in localEmojis { emojiCounts[e, default: 0] += c }
-            
-            for (w, c) in localCursed { cursedCounts[w, default: 0] += c }
-            for (w, c) in localLinks { linkCounts[w, default: 0] += c }
-            for (w, c) in localDiscordLinks { discordLinkCounts[w, default: 0] += c }
-            
-            
-            // Detailed Stats Classification Merge
-            for (id, stats) in localServerStats {
-                serverStats[id, default: StatsAccumulator()].merge(other: stats)
-            }
-            
-            for (id, stats) in localDMStats {
-                dmStats[id, default: StatsAccumulator()].merge(other: stats)
-                
-                if dmChannelInfos[id] == nil {
-                     let name = loadedMessageIndex[id] ?? "Unknown DM"
-                     dmChannelInfos[id] = name
-                }
-            }
-            lock.unlock()
         }
+        
+        group.wait()
         
         // Final Processing on Main Thread
         
@@ -730,6 +819,7 @@ class PackageViewModel: ObservableObject {
             
             self.stats.messagesByHour = msgByHour
             self.stats.messagesByDay = msgByDay
+            self.stats.messagesByMonth = msgByMonth
             self.stats.messagesByYear = msgByYear
             
             self.stats.topWords = topWords
@@ -746,42 +836,128 @@ class PackageViewModel: ObservableObject {
     // MARK: - Parse Analytics
     
     private func parseAnalytics(at root: URL) {
-        // Find analytics file
-        for folder in ["Activity", "activity"] {
-            let analyticsPath = root.appendingPathComponent("\(folder)/analytics").appendingPathExtension("json")
-            let reportingPath = root.appendingPathComponent("\(folder)/reporting").appendingPathExtension("json")
-            
-            // Try to read analytics events
-            for path in [analyticsPath, reportingPath] {
-                guard let data = try? Data(contentsOf: path),
-                      let content = String(data: data, encoding: .utf8) else { continue }
+        log("Starting parallel analytics scan...")
+        
+        let fileManager = FileManager.default
+        var jsonFiles: [URL] = []
+        
+        // 1. Find all JSON files in Activity folders
+        for folderName in ["Activity", "activity"] {
+            let folderURL = root.appendingPathComponent(folderName)
+            var isDir: ObjCBool = false
+            if fileManager.fileExists(atPath: folderURL.path, isDirectory: &isDir) && isDir.boolValue {
+                // Enumerator to find all files recursively (some packages have nested folders)
+                if let enumerator = fileManager.enumerator(at: folderURL, includingPropertiesForKeys: nil) {
+                    for case let fileURL as URL in enumerator {
+                        if fileURL.pathExtension == "json" {
+                            jsonFiles.append(fileURL)
+                        }
+                    }
+                }
+            }
+        }
+        
+        if jsonFiles.isEmpty {
+            log("No analytics JSON files found.")
+            return
+        }
+        
+        log("Found \(jsonFiles.count) analytics files. Parsing...")
+        
+        // 2. Thread-safe Aggregation
+        let lock = NSLock()
+        var eventCounts: [String: Int] = [:]
+        
+        // Define relevant event types
+        let trackedEvents: Set<String> = [
+            "app_opened", "join_voice_channel", "join_call", "add_reaction",
+            "message_edited", "message_deleted", "slash_command_used",
+            "notification_clicked", "invite_sent", "gift_code_sent",
+            "search_started", "app_crashed"
+        ]
+        
+        log("Processing \(jsonFiles.count) files with optimized batching...")
+        
+        // Optimize: Process in batches to control memory usage
+        let batchSize = 10 // Process 10 files concurrently max
+        let chunks = stride(from: 0, to: jsonFiles.count, by: batchSize).map {
+            Array(jsonFiles[$0..<min($0 + batchSize, jsonFiles.count)])
+        }
+        
+        // Use a background queue but limit concurrency via the chunking structure
+        let queue = DispatchQueue(label: "com.discswift.analytics", attributes: .concurrent)
+        let group = DispatchGroup()
+        
+        for (index, chunk) in chunks.enumerated() {
+            group.enter()
+            queue.async { [weak self] in
+                defer { group.leave() }
                 
-                // Count events by searching for event names (Discord-Package style)
-                let events: [(String, WritableKeyPath<DiscordStats, Int>)] = [
-                    ("app_opened", \.appOpenedCount),
-                    ("join_voice_channel", \.voiceChannelJoins),
-                    ("join_call", \.callsJoined),
-                    ("add_reaction", \.reactionsAdded),
-                    ("message_edited", \.messagesEdited),
-                    ("message_deleted", \.messagesDeleted),
-                    ("slash_command_used", \.slashCommandsUsed),
-                    ("notification_clicked", \.notificationsClicked),
-                    ("invite_sent", \.invitesSent),
-                    ("gift_code_sent", \.giftsSent),
-                    ("search_started", \.searchesStarted),
-                    ("app_crashed", \.appCrashes),
-                ]
-                
-                DispatchQueue.main.async { [weak self] in
-                    for (eventName, keyPath) in events {
-                        let count = content.components(separatedBy: eventName).count - 1
-                        self?.stats[keyPath: keyPath] = count
+                // Process each file in this chunk
+                for fileURL in chunk {
+                    var localCounts: [String: Int] = [:]
+                    
+                    // Use mappedIfSafe to avoid loading entire file into RAM if possible
+                    if let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe) {
+                        do {
+                            // Try standard array parsing
+                            if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                                for event in jsonArray {
+                                    if let type = event["event_type"] as? String, trackedEvents.contains(type) {
+                                        localCounts[type, default: 0] += 1
+                                    }
+                                }
+                            } else if let jsonObject = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                                 // Single object case
+                                 if let type = jsonObject["event_type"] as? String, trackedEvents.contains(type) {
+                                        localCounts[type, default: 0] += 1
+                                 }
+                            }
+                        } catch {
+                            // Silent failing on bad JSON, but log first few errors
+                            // self?.log("Error parsing \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                        }
+                    }
+                    
+                    // Merge results immediately to free local memory
+                    if !localCounts.isEmpty {
+                        lock.lock()
+                        for (key, count) in localCounts {
+                            eventCounts[key, default: 0] += count
+                        }
+                        lock.unlock()
                     }
                 }
                 
-                log("Analytics parsed")
-                return
+                // Log progress for every few chunks
+                if index % 5 == 0 {
+                    let progress = Double(index * batchSize) / Double(jsonFiles.count) * 100
+                    let uiProgress = 0.9 + (progress / 100.0) * 0.1
+                    self?.log(String(format: "Analytics Progress: %.1f%% (Memory Optimized)", progress))
+                    self?.updateProgress(uiProgress, String(format: "Parsing analytics... %.0f%%", progress))
+                }
             }
+        }
+        
+        group.wait() // Wait for all batches to finish
+        
+        // 3. Update Main Stats
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.stats.appOpenedCount = eventCounts["app_opened"] ?? 0
+            self.stats.voiceChannelJoins = eventCounts["join_voice_channel"] ?? 0
+            self.stats.callsJoined = eventCounts["join_call"] ?? 0
+            self.stats.reactionsAdded = eventCounts["add_reaction"] ?? 0
+            self.stats.messagesEdited = eventCounts["message_edited"] ?? 0
+            self.stats.messagesDeleted = eventCounts["message_deleted"] ?? 0
+            self.stats.slashCommandsUsed = eventCounts["slash_command_used"] ?? 0
+            self.stats.notificationsClicked = eventCounts["notification_clicked"] ?? 0
+            self.stats.invitesSent = eventCounts["invite_sent"] ?? 0
+            self.stats.giftsSent = eventCounts["gift_code_sent"] ?? 0
+            self.stats.searchesStarted = eventCounts["search_started"] ?? 0
+            self.stats.appCrashes = eventCounts["app_crashed"] ?? 0
+            
+            self.log("Parallel analytics parsing completed.")
         }
     }
     

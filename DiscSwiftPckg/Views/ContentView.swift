@@ -58,6 +58,8 @@ struct ContentView: View {
                 dropZone
             }
         }
+
+        .frame(width: 1000, height: 700)
         .preferredColorScheme(.light)
     }
     
@@ -68,6 +70,8 @@ struct ContentView: View {
             // Sidebar
             sidebar
                 .frame(width: 200)
+                .frame(minWidth: 200, maxWidth: 200)
+                .layoutPriority(1)
                 .background(Theme.bgSecondary)
                 .overlay(
                     Rectangle().fill(Theme.border).frame(width: 1),
@@ -84,59 +88,58 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: "archivebox.fill")
+                    .font(.system(size: 14))
                     .foregroundStyle(Theme.accent)
-                Text("Discord Data")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+                Text("DISCORD DATA")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 24)
-            .padding(.bottom, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
             
-            // Navigation
-            VStack(spacing: 2) {
+            // Navigation Group
+            VStack(spacing: 4) {
                 ForEach(NavItem.allCases, id: \.self) { item in
-                    Button {
+                    PluginNavItem(item: item, isSelected: selectedNav == item) {
                         selectedNav = item
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: item.icon)
-                                .font(.system(size: 14))
-                                .frame(width: 20)
-                            Text(item.rawValue)
-                                .font(.system(size: 13, weight: .medium))
-                            Spacer()
-                        }
-                        .foregroundStyle(selectedNav == item ? Theme.textPrimary : Theme.textSecondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(selectedNav == item ? Theme.bgTertiary : .clear)
-                        .cornerRadius(8)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 10)
             
-            Spacer()
+            // Divider
+            Rectangle()
+                .fill(Theme.border)
+                .frame(height: 1)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
             
-            // Reset button
+            // Reset / Load New Button
             Button {
                 viewModel.reset()
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.counterclockwise")
-                    Text("Load New")
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 14))
+                    Text("Load New Package")
+                        .font(.system(size: 13, weight: .medium))
+                    Spacer()
                 }
-                .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(16)
+            .padding(.horizontal, 10)
+            
+            Spacer()
         }
     }
+
     
     @ViewBuilder
     private var mainContent: some View {
@@ -238,6 +241,42 @@ struct ContentView: View {
         return true
     }
 }
+
+struct PluginNavItem: View {
+    let item: NavItem
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            
+            HStack(spacing: 12) {
+                Image(systemName: item.icon)
+                    .font(.system(size: 14))
+                    .frame(width: 20)
+                    .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
+                
+                Text(item.rawValue)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+                
+                Spacer()
+                
+                if isSelected {
+                    Circle()
+                        .fill(Theme.accent)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(isSelected ? Theme.bgTertiary : .clear)
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 
 #Preview {
     ContentView()

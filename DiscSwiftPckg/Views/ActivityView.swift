@@ -1,7 +1,17 @@
 import SwiftUI
 
+enum TimeFrame: String, CaseIterable, Identifiable {
+    case hourly = "Hourly"
+    case daily = "Daily"
+    case monthly = "Monthly"
+    case yearly = "Yearly"
+    
+    var id: String { self.rawValue }
+}
+
 struct ActivityView: View {
     @EnvironmentObject var viewModel: PackageViewModel
+    @State private var selectedTimeFrame: TimeFrame = .daily
     
     var body: some View {
         ScrollView {
@@ -27,18 +37,27 @@ struct ActivityView: View {
                     ActivityCard(icon: "exclamationmark.triangle.fill", title: "App Crashes", value: viewModel.stats.appCrashes)
                 }
                 
-                // Yearly activity
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Messages by Year")
-                        .font(.system(size: 16, weight: .semibold))
-                    
-                    if viewModel.stats.messagesByYear.isEmpty {
-                        Text("No yearly data")
-                            .foregroundStyle(Theme.textSecondary)
-                    } else {
-                        YearlyChartView(data: viewModel.stats.messagesByYear)
-                            .frame(height: 120)
+                // Activity Graph Section
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Message Activity")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        
+                        Spacer()
+                        
+                        Picker("Time Frame", selection: $selectedTimeFrame) {
+                            ForEach(TimeFrame.allCases) { frame in
+                                Text(frame.rawValue).tag(frame)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 300)
                     }
+                    
+                    UniversalBarChart(data: chartData, maxVal: maxChartValue)
+                        .frame(height: 180)
+                        .padding(.top, 8)
                 }
                 .padding(20)
                 .background(Theme.bgSecondary)
@@ -82,6 +101,26 @@ struct ActivityView: View {
         }
         .background(Theme.bgPrimary)
     }
+    
+    // Computed props for chart data
+    private var chartData: [(String, Int)] {
+        switch selectedTimeFrame {
+        case .hourly:
+            return viewModel.stats.messagesByHour.enumerated().map { (String(format: "%02d", $0), $1) }
+        case .daily:
+            let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            return viewModel.stats.messagesByDay.enumerated().map { (days[$0], $1) }
+        case .monthly:
+            let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            return viewModel.stats.messagesByMonth.enumerated().map { (months[$0], $1) }
+        case .yearly:
+            return viewModel.stats.messagesByYear.sorted { $0.key < $1.key }.map { (String($0.key), $0.value) }
+        }
+    }
+    
+    private var maxChartValue: Int {
+        chartData.map { $0.1 }.max() ?? 1
+    }
 }
 
 struct ActivityCard: View {
@@ -109,28 +148,42 @@ struct ActivityCard: View {
     }
 }
 
-struct YearlyChartView: View {
-    let data: [Int: Int]
-    
-    var sortedYears: [(Int, Int)] {
-        data.sorted { $0.key < $1.key }
-    }
-    
-    var maxVal: Int { data.values.max() ?? 1 }
+struct UniversalBarChart: View {
+    let data: [(String, Int)]
+    let maxVal: Int
     
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            ForEach(sortedYears, id: \.0) { year, count in
-                let height = maxVal > 0 ? CGFloat(count) / CGFloat(maxVal) : 0
-                VStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(year == sortedYears.max(by: { $0.1 < $1.1 })?.0 ? Theme.accent : Theme.accent.opacity(0.4))
-                        .frame(height: max(4, height * 80))
-                    Text("\(year)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Theme.textSecondary)
+        GeometryReader { geo in
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(data, id: \.0) { label, value in
+                    let height = maxVal > 0 ? (CGFloat(value) / CGFloat(maxVal)) * geo.size.height : 0
+                    
+                    VStack(spacing: 6) {
+                        // Tooltip-ish value on top if selected (simplified for now)
+                        
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Theme.accent.opacity(0.8), Theme.accent.opacity(0.5)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .frame(height: max(4, height))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(Theme.accent.opacity(0.3), lineWidth: 1)
+                            )
+                        
+                        Text(label)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .rotationEffect(data.count > 15 ? .degrees(-45) : .degrees(0))
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
         }
     }

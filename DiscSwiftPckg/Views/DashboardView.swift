@@ -5,7 +5,7 @@ struct DashboardView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 16) {
                 // Header with user
                 headerSection
                 
@@ -17,6 +17,35 @@ struct DashboardView: View {
                 // Main stats cards
                 statsGrid
                 
+                // Tickets Entry
+                if !viewModel.stats.tickets.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "ticket.fill")
+                                .foregroundStyle(Theme.accent)
+                            Text("Support Tickets")
+                                .font(.system(size: 16, weight: .semibold))
+                            Spacer()
+                            Text("\(viewModel.stats.tickets.count) tickets")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        
+                        Button {
+                        } label: {
+                           EmptyView() 
+                        }
+                        
+                        TicketsView(tickets: viewModel.stats.tickets)
+                            .frame(height: 500)
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.bgTertiary, lineWidth: 1))
+                    }
+                    .padding(16)
+                    .background(Theme.bgSecondary)
+                    .cornerRadius(12)
+                }
+                
                 // Top custom emojis with images
                 topEmojisSection
                 
@@ -26,10 +55,22 @@ struct DashboardView: View {
                 // Top lists
                 topListsSection
                 
-                Spacer(minLength: 40)
+                // My Bots
+                if !viewModel.stats.bots.isEmpty {
+                    BotsGridView(bots: viewModel.stats.bots)
+                }
+                
+                // Transactions
+                if !viewModel.stats.payments.isEmpty {
+                    TransactionsView(payments: viewModel.stats.payments)
+                }
+                
+                Spacer(minLength: 20)
             }
-            .padding(32)
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity)
         .background(Theme.bgPrimary)
     }
     

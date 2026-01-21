@@ -8,8 +8,7 @@ struct DiscSwiftPckgApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(viewModel)
-                .frame(minWidth: 900, minHeight: 600)
         }
-        .defaultSize(width: 1000, height: 700)
+        .windowResizability(.contentSize)
     }
 }

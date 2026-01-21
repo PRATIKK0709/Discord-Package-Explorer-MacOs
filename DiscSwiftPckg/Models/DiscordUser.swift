@@ -79,3 +79,22 @@ struct DiscordPayment: Codable {
         status == 1
     }
 }
+
+/// Bot application from Account/applications/
+struct DiscordBot: Codable, Identifiable {
+    let id: String
+    let name: String
+    let description: String
+    let icon: String?
+    let botToken: String?
+    let publicKey: String?
+    
+    // Local image URL for UI
+    var localIconURL: URL?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, icon
+        case botToken = "bot_token"
+        case publicKey = "public_key"
+    }
+}
