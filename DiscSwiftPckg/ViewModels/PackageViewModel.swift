@@ -250,6 +250,29 @@ class PackageViewModel: ObservableObject {
         // 2. Prepare thread-safe aggregation
         let lock = NSLock()
         
+        // Helper struct for detailed aggregation
+        struct StatsAccumulator {
+            var messageCount = 0
+            var wordCount = 0
+            var charCount = 0
+            var words = [String: Int]()
+            var emojis = [String: Int]()
+            var cursed = [String: Int]()
+            var links = [String: Int]()
+            var discordLinks = [String: Int]()
+            
+            mutating func merge(other: StatsAccumulator) {
+                messageCount += other.messageCount
+                wordCount += other.wordCount
+                charCount += other.charCount
+                for (k, v) in other.words { words[k, default: 0] += v }
+                for (k, v) in other.emojis { emojis[k, default: 0] += v }
+                for (k, v) in other.cursed { cursed[k, default: 0] += v }
+                for (k, v) in other.links { links[k, default: 0] += v }
+                for (k, v) in other.discordLinks { discordLinks[k, default: 0] += v }
+            }
+        }
+        
         // Accumulators
         var totalMessages = 0
         var totalWords = 0
@@ -264,8 +287,30 @@ class PackageViewModel: ObservableObject {
         
         var wordCounts = [String: Int]()
         var emojiCounts = [String: Int]()
-        var serverCounts = [String: Int]() // Guild ID -> Message Count
-        var dmChannelStats = [String: (String, Int)]() // Channel ID -> (Name, Count)
+        var cursedCounts = [String: Int]()
+        var linkCounts = [String: Int]()
+        var discordLinkCounts = [String: Int]()
+        
+        // Detailed Accumulators
+        // Key: Server ID (or DM Channel ID) -> Stats
+        var serverStats = [String: StatsAccumulator]()
+        var dmStats = [String: StatsAccumulator]()
+        
+        var dmChannelInfos = [String: String]() // Channel ID -> Name (for final mapping)
+        
+        // --- REGEX SETUP ---
+        // Reference Repos Cursed Words Regex (from components/utils/index.js)
+        let cursedPattern = "\\b(4r5e|5h1t|5hit|a55|anal|anus|ar5e|arrse|arse|ass|ass-fucker|asses|assfucker|assfukka|asshole|assholes|asswhole|a_s_s|b!tch|b00bs|b17ch|b1tch|ballbag|balls|ballsack|bastard|beastial|beastiality|bellend|bestial|bestiality|bi\\+ch|biatch|bitch|bitcher|bitchers|bitches|bitchin|bitching|bloody|blow job|blowjob|blowjobs|boiolas|bollock|bollok|boner|boob|boobs|booobs|boooobs|booooobs|booooooobs|breasts|buceta|bugger|bum|bunny fucker|butt|butthole|buttmuch|buttplug|c0ck|c0cksucker|carpet muncher|cawk|chink|cipa|cl1t|clit|clitoris|clits|cnut|cock|cock-sucker|cockface|cockhead|cockmunch|cockmuncher|cocks|cocksuck|cocksucked|cocksucker|cocksucking|cocksucks|cocksuka|cocksukka|cok|cokmuncher|coksucka|coon|cox|crap|cum|cummer|cumming|cums|cumshot|cunilingus|cunillingus|cunnilingus|cunt|cuntlick|cuntlicker|cuntlicking|cunts|cyalis|cyberfuc|cyberfuck|cyberfucked|cyberfucker|cyberfuckers|cyberfucking|d1ck|damn|dick|dickhead|dildo|dildos|dink|dinks|dirsa|dlck|dog-fucker|doggin|dogging|donkeyribber|doosh|duche|dyke|ejaculate|ejaculated|ejaculates|ejaculating|ejaculatings|ejaculation|ejakulate|f u c k|f u c k e r|f4nny|fag|fagging|faggitt|faggot|faggs|fagot|fagots|fags|fanny|fannyflaps|fannyfucker|fanyy|fatass|fcuk|fcuker|fcuking|feck|fecker|felching|fellate|fellatio|fingerfuck|fingerfucked|fingerfucker|fingerfuckers|fingerfucking|fingerfucks|fistfuck|fistfucked|fistfucker|fistfuckers|fistfucking|fistfuckings|fistfucks|flange|fook|fooker|fuck|fucka|fucked|fucker|fuckers|fuckhead|fuckheads|fuckin|fucking|fuckings|fuckingshitmotherfucker|fuckme|fucks|fuckwhit|fuckwit|fudge packer|fudgepacker|fuk|fuker|fukker|fukkin|fuks|fukwhit|fukwit|fux|fux0r|f_u_c_k|gangbang|gangbanged|gangbangs|gaylord|gaysex|goatse|God|god-dam|god-damned|goddamn|goddamned|hardcoresex|hell|heshe|hoar|hoare|hoer|homo|hore|horniest|horny|hotsex|jack-off|jackoff|jap|jerk-off|jism|jiz|jizm|jizz|kawk|knob|knobead|knobed|knobend|knobhead|knobjocky|knobjokey|kock|kondum|kondums|kum|kummer|kumming|kums|kunilingus|l3i\\+ch|l3itch|labia|lust|lusting|m0f0|m0fo|m45terbate|ma5terb8|ma5terbate|masochist|master-bate|masterb8|masterbat*|masterbat3|masterbate|masterbation|masterbations|masturbate|mo-fo|mof0|mofo|mothafuck|mothafucka|mothafuckas|mothafuckaz|mothafucked|mothafucker|mothafuckers|mothafuckin|mothafucking|mothafuckings|mothafucks|mother fucker|motherfuck|motherfucked|motherfucker|motherfuckers|motherfuckin|motherfucking|motherfuckings|motherfuckka|motherfucks|muff|mutha|muthafecker|muthafuckker|muther|mutherfucker|n1gga|n1gger|nazi|nigg3r|nigg4h|nigga|niggah|niggas|niggaz|nigger|niggers|nob|nob jokey|nobhead|nobjocky|nobjokey|numbnuts|nutsack|orgasim|orgasims|orgasm|orgasms|p0rn|pawn|pecker|penis|penisfucker|phonesex|phuck|phuk|phuked|phuking|phukked|phukking|phuks|phuq|pigfucker|pimpis|piss|pissed|pisser|pissers|pisses|pissflaps|pissin|pissing|pissoff|poop|porn|porno|pornography|pornos|prick|pricks|pron|pube|pusse|pussi|pussies|pussy|pussys|rectum|retard|rimjaw|rimming|s hit|s.o.b.|sadist|schlong|screwing|scroat|scrote|scrotum|semen|sex|sh!\\+|sh!t|sh1t|shag|shagger|shaggin|shagging|shemale|shi\\+|shit|shitdick|shite|shited|shitey|shitfuck|shitfull|shithead|shiting|shitings|shits|shitted|shitter|shitters|shitting|shittings|shitty|skank|slut|sluts|smegma|smut|snatch|son-of-a-bitch|spac|spunk|s_h_i_t|t1tt1e5|t1tties|teets|teez|testical|testicle|tit|titfuck|tits|titt|tittie5|tittiefucker|titties|tittyfuck|tittywank|titwank|tosser|turd|tw4t|twat|twathead|twatty|twunt|twunter|v14gra|v1gra|vagina|viagra|vulva|w00se|wang|wank|wanker|wanky|whoar|whore|willies|willy|xrated|xxx)\\b"
+        
+        // Link Regex
+        let linkPattern = "(\\b(https?|ftp|file|http)://[-A-Z0-9+&@#%?=~_|!:,.;]*[-A-Z0-9+&@#%=~_|])"
+        
+        // Discord Link Regex
+        let discordLinkPattern = "(https://)?(www\\.)?(discord\\.gg|discord\\.me|discordapp\\.com/invite|discord\\.com/invite)/([a-z0-9-.]+)?";
+
+        let cursedRegex = try? NSRegularExpression(pattern: cursedPattern, options: .caseInsensitive)
+        let linkRegex = try? NSRegularExpression(pattern: linkPattern, options: .caseInsensitive)
+        let discordLinkRegex = try? NSRegularExpression(pattern: discordLinkPattern, options: .caseInsensitive)
         
         // Pre-compute local emoji map once
         let safeLocalEmojiMap = self.localEmojiMap
@@ -290,12 +335,18 @@ class PackageViewModel: ObservableObject {
             
             var localWords = [String: Int]()
             var localEmojis = [String: Int]()
+            var localCursed = [String: Int]()
+            var localLinks = [String: Int]()
+            var localDiscordLinks = [String: Int]()
             
-            // Stats per channel (ID -> Count)
-            var localChannelCounts = [String: Int]()
+            // Detailed Local Accumulators
+            // We need to track which channel ID contributes to which Guild locally
+            var localServerStats = [String: StatsAccumulator]()
+            var localDMStats = [String: StatsAccumulator]()
+            
             // Map Channel ID -> Guild ID (if found in channel.json)
             var channelToGuild = [String: String]()
-            // Set of DM channel IDs
+            // Set of DM channel IDs encountered
             var dmChannelIds = Set<String>()
             
             let channelFolders: [URL]
@@ -401,13 +452,104 @@ class PackageViewModel: ObservableObject {
                         // Valid Word
                         if !w.isEmpty && w.count > 2 && !w.hasPrefix("http") {
                              localWordCount += 1 // Count valid words
-                             if w.count > 3 { // Statistic threshold
+                             if w.count > 3 { // Statistic threshold for "Favorite Words"
                                  localWords[w, default: 0] += 1
                              }
                         }
                     }
+                    
+                    // --- Cursed Words ---
+                    if let regex = cursedRegex {
+                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+                        for match in matches {
+                            if let range = Range(match.range, in: content) {
+                                let badWord = String(content[range]).lowercased()
+                                localCursed[badWord, default: 0] += 1
+                            }
+                        }
+                    }
+                    
+                    // --- Links ---
+                    if let regex = linkRegex {
+                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+                        for match in matches {
+                            if let range = Range(match.range, in: content) {
+                                let link = String(content[range])
+                                if link.count > 3 {
+                                    localLinks[link, default: 0] += 1
+                                }
+                            }
+                        }
+                    }
+                    
+                    // --- Discord Links ---
+                    if let regex = discordLinkRegex {
+                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+                        for match in matches {
+                            if let range = Range(match.range, in: content) {
+                                let dlink = String(content[range])
+                                if dlink.count > 15 {
+                                    localDiscordLinks[dlink, default: 0] += 1
+                                }
+                            }
+                        }
+                    }
                 }
                 
+                
+                // Helper to update specific accumulator
+                func updateStats(_ stats: inout StatsAccumulator, _ content: String) {
+                    stats.messageCount += 1
+                    stats.charCount += content.count
+                    
+                    let words = content.components(separatedBy: .whitespacesAndNewlines)
+                    for word in words {
+                        if word.isEmpty { continue }
+                        let w = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+                        
+                        // Emoji
+                        if word.hasPrefix("<") && word.hasSuffix(">") {
+                            stats.emojis[word, default: 0] += 1
+                            continue
+                        }
+                        
+                        if !w.isEmpty && w.count > 2 && !w.hasPrefix("http") {
+                             stats.wordCount += 1
+                             if w.count > 3 {
+                                 stats.words[w, default: 0] += 1
+                             }
+                        }
+                    }
+                    // Regexes (simplified for accumulator performance - re-running regex per message is heavy but necessary for detail)
+                     if let regex = cursedRegex {
+                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+                        for match in matches {
+                            if let range = Range(match.range, in: content) {
+                                let badWord = String(content[range]).lowercased()
+                                stats.cursed[badWord, default: 0] += 1
+                            }
+                        }
+                    }
+                    if let regex = linkRegex {
+                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+                        for match in matches {
+                            if let range = Range(match.range, in: content) {
+                                let link = String(content[range])
+                                if link.count > 3 { stats.links[link, default: 0] += 1 }
+                            }
+                        }
+                    }
+                    if let regex = discordLinkRegex {
+                        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+                        for match in matches {
+                            if let range = Range(match.range, in: content) {
+                                let dlink = String(content[range])
+                                if dlink.count > 15 { stats.discordLinks[dlink, default: 0] += 1 }
+                            }
+                        }
+                    }
+                }
+
                 // --- CSV PARSING ---
                 if FileManager.default.fileExists(atPath: messagesFile.path) {
                     if let content = try? String(contentsOf: messagesFile, encoding: .utf8) {
@@ -421,6 +563,20 @@ class PackageViewModel: ObservableObject {
                                 let contentStr = parts.dropFirst(2).joined(separator: ",")
                                 
                                 processMessage(contentStr, timestampStr)
+                                
+                                // Accumulate Detailed Stats
+                                if channelMsgCount > 0 { // Just processed
+                                    if let gid = guildId {
+                                        updateStats(&localServerStats[gid, default: StatsAccumulator()], contentStr)
+                                    } else if isDM {
+                                        updateStats(&localDMStats[chId, default: StatsAccumulator()], contentStr)
+                                    } else {
+                                        // Fallback
+                                        if !folder.path.contains("/Servers") {
+                                            updateStats(&localDMStats[chId, default: StatsAccumulator()], contentStr)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -432,6 +588,18 @@ class PackageViewModel: ObservableObject {
                         for msg in json {
                            if let content = msg["Contents"] as? String, let ts = msg["Timestamp"] as? String {
                                processMessage(content, ts)
+                               
+                               // Accumulate Detailed Stats
+                                if let gid = guildId {
+                                    updateStats(&localServerStats[gid, default: StatsAccumulator()], content)
+                                } else if isDM {
+                                    updateStats(&localDMStats[chId, default: StatsAccumulator()], content)
+                                } else {
+                                    // Fallback
+                                    if !folder.path.contains("/Servers") {
+                                        updateStats(&localDMStats[chId, default: StatsAccumulator()], content)
+                                    }
+                                }
                            }
                            if let attachments = msg["Attachments"] as? String, !attachments.isEmpty {
                                localFileCount += 1
@@ -442,19 +610,11 @@ class PackageViewModel: ObservableObject {
                 
                 localMsgCount += channelMsgCount
                 
-                // Record Stats for later merging
-                if channelMsgCount > 0 {
-                    localChannelCounts[chId] = channelMsgCount
-                    if let gid = guildId {
-                        channelToGuild[chId] = gid
-                    } else if isDM {
-                        dmChannelIds.insert(chId)
-                    } else {
-                        // Fallback: If not explicitly Guild or DM, but in Messages folder -> Assume DM
-                        if !folder.path.contains("/Servers") {
-                            dmChannelIds.insert(chId)
-                        }
-                    }
+                // Record Stats for later merging (identifying DMs name)
+                if channelMsgCount > 0 && isDM {
+                     dmChannelIds.insert(chId)
+                } else if channelMsgCount > 0 && !folder.path.contains("/Servers") && guildId == nil {
+                     dmChannelIds.insert(chId)
                 }
             }
             
@@ -474,14 +634,22 @@ class PackageViewModel: ObservableObject {
             for (w, c) in localWords { wordCounts[w, default: 0] += c }
             for (e, c) in localEmojis { emojiCounts[e, default: 0] += c }
             
-            // Channel Classification Merge
-            for (chId, count) in localChannelCounts {
-                if let gid = channelToGuild[chId] {
-                    serverCounts[gid, default: 0] += count
-                } else if dmChannelIds.contains(chId) {
-                    let name = loadedMessageIndex[chId] ?? "Unknown DM"
-                    let cleanName = name.replacingOccurrences(of: "Direct Message with ", with: "")
-                    dmChannelStats[chId] = (cleanName, count)
+            for (w, c) in localCursed { cursedCounts[w, default: 0] += c }
+            for (w, c) in localLinks { linkCounts[w, default: 0] += c }
+            for (w, c) in localDiscordLinks { discordLinkCounts[w, default: 0] += c }
+            
+            
+            // Detailed Stats Classification Merge
+            for (id, stats) in localServerStats {
+                serverStats[id, default: StatsAccumulator()].merge(other: stats)
+            }
+            
+            for (id, stats) in localDMStats {
+                dmStats[id, default: StatsAccumulator()].merge(other: stats)
+                
+                if dmChannelInfos[id] == nil {
+                     let name = loadedMessageIndex[id] ?? "Unknown DM"
+                     dmChannelInfos[id] = name
                 }
             }
             lock.unlock()
@@ -489,17 +657,60 @@ class PackageViewModel: ObservableObject {
         
         // Final Processing on Main Thread
         
-        // Filter top words list more aggressively
+        // Helper to convert Accumulator to DetailedStats
+        func createDetailedStats(id: String, name: String, acc: StatsAccumulator, serverName: String? = nil) -> DetailedStats {
+             // Filter top words
+             let tWords = acc.words
+                .filter { pair in
+                    let w = pair.key.lowercased()
+                    return !["the", "and", "that", "have", "for", "with", "this", "what", "just", "from", "your", "http", "https", "you", "are", "but", "not", "can", "all", "was"].contains(w)
+                    && w.rangeOfCharacter(from: CharacterSet.decimalDigits) == nil
+                }
+                .sorted { $0.value > $1.value }
+                .prefix(20)
+                .map { ($0.key, $0.value) }
+            
+            // Filter top emojis
+            let tEmojis = acc.emojis.sorted { $0.value > $1.value }.prefix(10).compactMap { (emojiStr, count) -> (name: String, id: String, count: Int, imageURL: String)? in
+                let pattern = "<(a)?:([^:]+):(\\d+)>"
+                guard let regex = try? NSRegularExpression(pattern: pattern),
+                      let match = regex.firstMatch(in: emojiStr, range: NSRange(emojiStr.startIndex..., in: emojiStr)) else { return nil }
+                let animated = (String(emojiStr[Range(match.range(at: 1), in: emojiStr) ?? emojiStr.startIndex..<emojiStr.startIndex]) == "a")
+                let name = String(emojiStr[Range(match.range(at: 2), in: emojiStr)!])
+                let id = String(emojiStr[Range(match.range(at: 3), in: emojiStr)!])
+                var urlString: String
+                if let localURL = safeLocalEmojiMap[id] { urlString = localURL.absoluteString }
+                else { urlString = "https://cdn.discordapp.com/emojis/\(id).\(animated ? "gif" : "png")?size=96&quality=lossless" }
+                return (name, id, count, urlString)
+            }
+
+            return DetailedStats(
+                id: id,
+                name: name,
+                messageCount: acc.messageCount,
+                wordCount: acc.wordCount,
+                characterCount: acc.charCount,
+                topWords: tWords,
+                topEmojis: tEmojis,
+                topCursedWords: acc.cursed.sorted { $0.value > $1.value }.prefix(20).map { ($0.key, $0.value) },
+                topLinks: acc.links.sorted { $0.value > $1.value }.prefix(20).map { ($0.key, $0.value) },
+                topDiscordLinks: acc.discordLinks.sorted { $0.value > $1.value }.prefix(20).map { ($0.key, $0.value) },
+                serverName: serverName
+            )
+        }
+        
+        // Calculate Top Words (Global)
         let topWords = wordCounts
             .filter { (word, _) in
                 let w = word.lowercased()
                 return !["the", "and", "that", "have", "for", "with", "this", "what", "just", "from", "your", "http", "https", "you", "are", "but", "not", "can", "all", "was"].contains(w)
-                && w.rangeOfCharacter(from: CharacterSet.decimalDigits) == nil // Remove numbers
+                && w.rangeOfCharacter(from: CharacterSet.decimalDigits) == nil
             }
             .sorted { $0.value > $1.value }
             .prefix(50)
             .map { ($0.key, $0.value) }
-        
+            
+        // Calculate Top Emojis (Global)
         let topEmojis = emojiCounts.sorted { $0.value > $1.value }.prefix(30).compactMap { (emojiStr, count) -> (name: String, id: String, count: Int, imageURL: String)? in
             let pattern = "<(a)?:([^:]+):(\\d+)>"
             guard let regex = try? NSRegularExpression(pattern: pattern),
@@ -526,11 +737,19 @@ class PackageViewModel: ObservableObject {
             serverIdToName = index
         }
         
-        let topServers = serverCounts.sorted { $0.value > $1.value }.prefix(10).map { (id, count) in
-            (serverIdToName[id] ?? "Server \(id)", count)
-        }
+        let topServers = serverStats.map { (id, acc) in
+            createDetailedStats(id: id, name: serverIdToName[id] ?? "Server \(id)", acc: acc)
+        }.sorted { $0.messageCount > $1.messageCount }.prefix(20).map { $0 }
         
-        let topDMs = dmChannelStats.values.sorted { $0.1 > $1.1 }.prefix(20).map { ($0.0, $0.1) }
+        let topDMs = dmStats.map { (id, acc) in
+            let rawName = dmChannelInfos[id] ?? "Unknown DM"
+            let cleanName = rawName.replacingOccurrences(of: "Direct Message with ", with: "")
+            return createDetailedStats(id: id, name: cleanName, acc: acc)
+        }.sorted { $0.messageCount > $1.messageCount }.prefix(20).map { $0 }
+        
+        let topCursed = cursedCounts.sorted { $0.value > $1.value }.prefix(50).map { ($0.key, $0.value) }
+        let topLinks = linkCounts.sorted { $0.value > $1.value }.prefix(50).map { ($0.key, $0.value) }
+        let topDiscordLinks = discordLinkCounts.sorted { $0.value > $1.value }.prefix(50).map { ($0.key, $0.value) }
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -547,9 +766,12 @@ class PackageViewModel: ObservableObject {
             
             self.stats.topWords = topWords
             self.stats.topCustomEmojis = topEmojis
-            self.stats.topServers = topServers
-            self.stats.topDMs = topDMs
-            self.stats.dmConversations = dmChannelStats.count
+            self.stats.topServers = Array(topServers) // Explicitly cast if needed, though map returns array
+            self.stats.topDMs = Array(topDMs)
+            self.stats.topCursedWords = topCursed
+            self.stats.topLinks = topLinks
+            self.stats.topDiscordLinks = topDiscordLinks
+            self.stats.dmConversations = dmChannelInfos.count
         }
     }
     

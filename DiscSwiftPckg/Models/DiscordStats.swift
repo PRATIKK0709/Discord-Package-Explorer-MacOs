@@ -28,9 +28,25 @@ struct DiscordStats {
     // Top lists
     var topWords: [(word: String, count: Int)] = []
     var topCustomEmojis: [(name: String, id: String, count: Int, imageURL: String)] = []
-    var topDMs: [(name: String, messageCount: Int)] = []
-    var topServers: [(name: String, messageCount: Int)] = []
-    var topChannels: [(name: String, serverName: String, messageCount: Int)] = []
+    
+    // New Data Points
+    var topCursedWords: [(word: String, count: Int)] = []
+    var topLinks: [(word: String, count: Int)] = []
+    var topDiscordLinks: [(word: String, count: Int)] = []
+    
+    // Detailed stats per entity
+    var topDMs: [DetailedStats] = []
+    var topServers: [DetailedStats] = []
+    var topChannels: [DetailedStats] = []
+    
+    // Legacy support (computed)
+    var topDMsSimple: [(name: String, messageCount: Int)] {
+        topDMs.map { ($0.name, $0.messageCount) }
+    }
+    
+    var topServersSimple: [(name: String, messageCount: Int)] {
+        topServers.map { ($0.name, $0.messageCount) }
+    }
     
     // DM stats
     var dmConversations: Int = 0
@@ -99,5 +115,33 @@ struct DiscordStats {
               !avatarHash.isEmpty else { return nil }
         let ext = avatarHash.hasPrefix("a_") ? "gif" : "png"
         return URL(string: "https://cdn.discordapp.com/avatars/\(user.id)/\(avatarHash).\(ext)?size=128")
+    }
+}
+
+/// Detailed statistics for a specific channel, DM, or Server
+struct DetailedStats: Identifiable, Hashable {
+    var id: String
+    var name: String
+    var messageCount: Int
+    
+    // Rich Stats
+    var wordCount: Int = 0
+    var characterCount: Int = 0
+    
+    var topWords: [(word: String, count: Int)] = []
+    var topEmojis: [(name: String, id: String, count: Int, imageURL: String)] = []
+    var topCursedWords: [(word: String, count: Int)] = []
+    var topLinks: [(word: String, count: Int)] = []
+    var topDiscordLinks: [(word: String, count: Int)] = []
+    
+    // Optional: Only used for Channels to link back to a server
+    var serverName: String? = nil
+    
+    static func == (lhs: DetailedStats, rhs: DetailedStats) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }

@@ -274,15 +274,45 @@ struct DashboardView: View {
     // MARK: - Top Lists
     
     private var topListsSection: some View {
-        HStack(alignment: .top, spacing: 16) {
-            // Top Words
-            TopListCard(title: "Top Words", icon: "text.quote", items: viewModel.stats.topWords.prefix(10).map { ($0.word, "\($0.count)") })
+        VStack(spacing: 24) {
+            // Global Words Section (Moved here)
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Global Favorite Words", systemImage: "text.quote")
+                    .font(.system(size: 16, weight: .semibold))
+                
+                FlowLayout(spacing: 8) {
+                    ForEach(viewModel.stats.topWords.prefix(25), id: \.word) { item in
+                        HStack(spacing: 4) {
+                            Text(item.word)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Theme.textPrimary)
+                            Text("\(item.count)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Theme.bgSecondary)
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Theme.bgTertiary, lineWidth: 1)
+                        )
+                    }
+                }
+            }
+            .padding(20)
+            .background(Theme.bgSecondary.opacity(0.5))
+            .cornerRadius(12)
             
-            // Top DMs
-            TopListCard(title: "Top DMs", icon: "person.2", items: viewModel.stats.topDMs.prefix(10).map { ($0.name, "\($0.messageCount)") })
-            
-            // Top Servers
-            TopListCard(title: "Top Servers", icon: "server.rack", items: viewModel.stats.topServers.prefix(10).map { ($0.name, "\($0.messageCount)") })
+            // Rich Top Lists
+            HStack(alignment: .top, spacing: 16) {
+                // Top DMs (Rich)
+                RichTopListCard(title: "Top DMs", icon: "person.2", items: viewModel.stats.topDMs)
+                
+                // Top Servers (Rich)
+                RichTopListCard(title: "Top Servers", icon: "server.rack", items: viewModel.stats.topServers)
+            }
         }
     }
 }
@@ -613,6 +643,172 @@ struct GifImageView: NSViewRepresentable {
             nsView.image = image
             nsView.animates = true
         }
+    }
+}
+
+
+
+struct RichTopListCard: View {
+    let title: String
+    let icon: String
+    let items: [DetailedStats]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundStyle(Theme.accent)
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                Spacer()
+            }
+            
+            if items.isEmpty {
+                Text("No data")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.vertical, 20)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(Array(items.prefix(10).enumerated()), id: \.offset) { idx, item in
+                        RichStatRow(rank: idx + 1, stats: item)
+                    }
+                }
+            }
+             Spacer()
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.bgSecondary)
+        .cornerRadius(12)
+    }
+}
+
+struct RichStatRow: View {
+    let rank: Int
+    let stats: DetailedStats
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Rank
+            Text("\(rank)")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 20)
+            
+            // Name & Primary Info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stats.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                
+                HStack(spacing: 8) {
+                    // Small badges for stats
+                     if !stats.topEmojis.isEmpty, let topEmoji = stats.topEmojis.first {
+                        HStack(spacing: 2) {
+                           AsyncImage(url: URL(string: topEmoji.imageURL)) { img in
+                               img.resizable().scaledToFit()
+                           } placeholder: { Color.clear }
+                           .frame(width: 12, height: 12)
+                        }
+                        .help("Top Emoji: \(topEmoji.name)")
+                    }
+                    
+                    let cursedCount = stats.topCursedWords.map(\.count).reduce(0, +)
+                    if cursedCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.orange)
+                            Text("\(cursedCount)")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        .help("\(cursedCount) cursed words")
+                    }
+                    
+                    let linkCount = stats.topLinks.map(\.count).reduce(0, +)
+                    if linkCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "link")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.blue)
+                            Text("\(linkCount)")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                         .help("\(linkCount) links shared")
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Message Count
+            Text("\(stats.messageCount)")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+        }
+        .padding(10)
+        .background(Theme.bgTertiary.opacity(0.5))
+        .cornerRadius(8)
+    }
+}
+
+// Simple FlowLayout for tags
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
+        if rows.isEmpty { return .zero }
+        let height = rows.last!.maxY
+        return CGSize(width: proposal.width ?? 0, height: height)
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
+        for row in rows {
+            for element in row.elements {
+                element.subview.place(at: CGPoint(x: bounds.minX + element.rect.minX, y: bounds.minY + element.rect.minY), proposal: proposal)
+            }
+        }
+    }
+    
+    struct Row {
+        var elements: [Element] = []
+        var maxY: CGFloat = 0
+    }
+    
+    struct Element {
+        var subview: LayoutSubview
+        var rect: CGRect
+    }
+    
+    func arrangeSubviews(proposal: ProposedViewSize, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var currentRow = Row()
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        let maxWidth = proposal.width ?? 0
+        
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && !currentRow.elements.isEmpty {
+                y += size.height + spacing
+                x = 0
+                rows.append(currentRow)
+                currentRow = Row()
+            }
+            
+            currentRow.elements.append(Element(subview: subview, rect: CGRect(x: x, y: y, width: size.width, height: size.height)))
+            currentRow.maxY = max(currentRow.maxY, y + size.height)
+            x += size.width + spacing
+        }
+        if !currentRow.elements.isEmpty {
+            rows.append(currentRow)
+        }
+        return rows
     }
 }
 
