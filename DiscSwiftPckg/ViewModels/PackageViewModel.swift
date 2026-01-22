@@ -831,7 +831,12 @@ class PackageViewModel: ObservableObject {
             self.stats.topWords = topWords
             self.stats.topCustomEmojis = topEmojis
             self.stats.topServers = Array(topServers) // Explicitly cast if needed, though map returns array
+            self.stats.topServers = Array(topServers) // Explicitly cast if needed, though map returns array
             self.stats.serverList = allServers
+            
+            // Calculate total server messages
+            self.stats.serverMessages = allServers.reduce(0) { $0 + $1.messageCount }
+            
             self.stats.topDMs = Array(topDMs)
             self.stats.topCursedWords = topCursed
             self.stats.topLinks = topLinks

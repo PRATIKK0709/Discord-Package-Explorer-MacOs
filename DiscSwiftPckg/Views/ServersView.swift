@@ -30,99 +30,37 @@ struct ServersView: View {
             .padding(.top, 32)
             .padding(.bottom, 16)
             
-            // Search
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(Theme.textSecondary)
-                TextField("Search servers...", text: $searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(10)
-            .background(Theme.bgSecondary)
-            .cornerRadius(8)
-            .padding(.horizontal, 32)
-            .padding(.bottom, 16)
-            
-            // Stats row
+            // Search & Stats Row
             HStack(spacing: 16) {
-                ServerStatPill(title: "Joined", value: "\(viewModel.stats.serverCount)", icon: "plus.circle.fill", color: .green)
-                ServerStatPill(title: "Muted", value: "\(viewModel.stats.mutedServerCount)", icon: "speaker.slash.fill", color: .red)
-                ServerStatPill(title: "Channels", value: "\(viewModel.stats.serverChannelCount)", icon: "number", color: .blue)
-                ServerStatPill(title: "Messages", value: viewModel.formatNumber(viewModel.stats.serverMessages), icon: "bubble.left.fill", color: .purple)
+                // Search
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(Theme.textSecondary)
+                    TextField("Search servers...", text: $searchText)
+                        .textFieldStyle(.plain)
+                }
+                .padding(10)
+                .background(Theme.bgSecondary)
+                .cornerRadius(8)
+                
+                // key stats
+                HStack(spacing: 12) {
+                     ServerStatPill(title: "Muted", value: "\(viewModel.stats.mutedServerCount)", icon: "speaker.slash.fill", color: .red) // Only keep mute as it's useful
+                     ServerStatPill(title: "Total Messages", value: viewModel.formatNumber(viewModel.stats.serverMessages), icon: "bubble.left.fill", color: .purple)
+                }
             }
             .padding(.horizontal, 32)
-            .padding(.bottom, 16)
+            .padding(.bottom, 24)
             
-            // Top Servers
-            if !viewModel.stats.topServers.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Most Active")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.horizontal, 32)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(viewModel.stats.topServers.prefix(5), id: \.name) { server in
-                                VStack(spacing: 8) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Theme.accent.opacity(0.1))
-                                            .frame(width: 48, height: 48)
-                                        Text(String(server.name.prefix(1)).uppercased())
-                                            .font(.system(size: 18, weight: .bold))
-                                            .foregroundStyle(Theme.accent)
-                                    }
-                                    Text(server.name)
-                                        .font(.system(size: 11))
-                                        .lineLimit(1)
-                                        .frame(width: 80)
-                                    Text(viewModel.formatNumber(server.messageCount))
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(Theme.textSecondary)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 32)
-                    }
-                }
-                .padding(.bottom, 16)
-            }
-            
-            // Server list
+            // Server list (Unified Grid)
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 16)], spacing: 16) {
-                    ForEach(filteredServers, id: \.name) { server in
-                        HStack(spacing: 12) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Theme.bgSecondary)
-                                    .frame(width: 44, height: 44)
-                                Text(String(server.name.prefix(1)).uppercased())
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(server.name)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(1)
-                                
-                                Text("\(viewModel.formatNumber(server.messageCount)) messages")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Theme.textSecondary)
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding(12)
-                        //.background(Theme.bgSecondary) // Using overlay border mostly or plain bg
-                        .background(Color.white) // Card look
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Theme.border, lineWidth: 1)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16)], spacing: 16) {
+                    ForEach(Array(filteredServers.enumerated()), id: \.element.name) { index, server in
+                        ServerCard(
+                            name: server.name,
+                            messageCount: server.messageCount,
+                            formattedCount: viewModel.formatNumber(server.messageCount),
+                            rank: index + 1
                         )
                     }
                 }
@@ -141,22 +79,91 @@ struct ServerStatPill: View {
     let color: Color
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.system(size: 10))
                 .foregroundStyle(color)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(value)
-                    .font(.system(size: 14, weight: .bold))
-                Text(title)
-                    .font(.system(size: 10))
+            
+            Text(value)
+                .font(.system(size: 12, weight: .bold))
+            
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Theme.bgSecondary)
+        .cornerRadius(6)
+    }
+}
+
+struct ServerCard: View {
+    let name: String
+    let messageCount: Int
+    let formattedCount: String
+    let rank: Int
+    
+    var rankColor: Color {
+        switch rank {
+        case 1: return Color(hex: 0xFFD700) // Gold
+        case 2: return Color(hex: 0xC0C0C0) // Silver
+        case 3: return Color(hex: 0xCD7F32) // Bronze
+        default: return Theme.textSecondary.opacity(0.3)
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Rank Badge
+            ZStack {
+                Circle()
+                    .fill(Theme.bgSecondary)
+                    .frame(width: 24, height: 24)
+                
+                if rank <= 3 {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(rankColor)
+                } else {
+                    Text("#\(rank)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            
+            // Initial
+            ZStack {
+                Circle()
+                    .fill(Theme.accent.opacity(0.1))
+                    .frame(width: 40, height: 40)
+                Text(String(name.prefix(1)).uppercased())
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+            }
+            
+            // Info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                
+                Text("\(formattedCount) msgs")
+                    .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
             }
+            
+            Spacer()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Theme.bgSecondary)
-        .cornerRadius(8)
+        .padding(12)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Theme.border.opacity(0.5), lineWidth: 1)
+        )
     }
 }
 
