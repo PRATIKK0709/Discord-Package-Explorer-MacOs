@@ -8,3 +8,4 @@
 | 75772a5 | chore: removed Activity section (parsing logic, view, and stats support) |
 | 75772a5 | feat: overhauled Servers view with message counts and improved card grid layout |
 | 75772a5 | fix: resolved compilation errors and optimized data model |
+| 4e96982 | feat: redesign Servers view with rank badges and fix serverMessages calculation |
