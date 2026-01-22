@@ -1,20 +1,25 @@
 import Foundation
 
 struct DiscordTicket: Codable, Identifiable {
-    let id: String
+    let ticketId: Int
     let status: String
     let subject: String?
     let createdAt: String
-    let messages: [TicketMessage]
+    let comments: [TicketComment]
+    
+    var id: String { String(ticketId) }
     
     enum CodingKeys: String, CodingKey {
-        case id, status, subject, messages
+        case ticketId = "ticket_id"
+        case status
+        case subject
         case createdAt = "created_at"
+        case comments
     }
     
     // Helper to sort messages
-    var sortedMessages: [TicketMessage] {
-        messages.sorted { $0.timestamp < $1.timestamp }
+    var sortedMessages: [TicketComment] {
+        comments.sorted { $0.createdAt < $1.createdAt }
     }
     
     var formattedDate: String {
@@ -29,17 +34,16 @@ struct DiscordTicket: Codable, Identifiable {
     }
 }
 
-struct TicketMessage: Codable, Identifiable {
-    var id: String { timestamp } // No ID in some exports, use timestamp
-    let author: TicketAuthor
-    let content: String
-    let timestamp: String
-    let attachments: [String]?
+struct TicketComment: Codable, Identifiable {
+    let author: String
+    let comment: String
+    let createdAt: String
     
-    struct TicketAuthor: Codable {
-        let username: String
-        let discriminator: String?
-        let avatar: String?
-        let bot: Bool?
+    var id: String { createdAt }
+    
+    enum CodingKeys: String, CodingKey {
+        case author
+        case comment
+        case createdAt = "created_at"
     }
 }

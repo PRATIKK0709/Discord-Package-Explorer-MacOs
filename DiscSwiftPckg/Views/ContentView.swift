@@ -30,15 +30,15 @@ extension Color {
 enum NavItem: String, CaseIterable {
     case dashboard = "Dashboard"
     case messages = "Messages"
-
     case servers = "Servers"
+    case tickets = "Tickets"
     
     var icon: String {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .messages: return "bubble.left.and.bubble.right"
-
         case .servers: return "server.rack"
+        case .tickets: return "ticket"
         }
     }
 }
@@ -148,9 +148,10 @@ struct ContentView: View {
             DashboardView()
         case .messages:
             MessagesView()
-
         case .servers:
             ServersView()
+        case .tickets:
+            TicketsView(tickets: viewModel.stats.tickets)
         }
     }
     

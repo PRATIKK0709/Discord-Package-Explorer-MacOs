@@ -5,7 +5,24 @@ struct TicketsView: View {
     @State private var selectedTicket: DiscordTicket?
     
     var body: some View {
-        HStack(spacing: 0) {
+        if tickets.isEmpty {
+            // Empty State
+            VStack(spacing: 16) {
+                Image(systemName: "ticket")
+                    .font(.system(size: 48))
+                    .foregroundStyle(Theme.textSecondary)
+                Text("No Support Tickets")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("You don't have any support ticket data in this package.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bgPrimary)
+        } else {
+HStack(spacing: 0) {
             // Sidebar List
             VStack(alignment: .leading, spacing: 0) {
                 Text("Support Tickets")
@@ -53,6 +70,7 @@ struct TicketsView: View {
             if selectedTicket == nil {
                 selectedTicket = tickets.first
             }
+        }
         }
     }
 }
@@ -110,7 +128,7 @@ struct TicketDetailView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                     
-                    Label("\(ticket.messages.count) messages", systemImage: "bubble.left.and.bubble.right")
+                    Label("\(ticket.comments.count) comments", systemImage: "bubble.left.and.bubble.right")
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -124,8 +142,8 @@ struct TicketDetailView: View {
             // Messages
             ScrollView {
                 LazyVStack(spacing: 24) {
-                    ForEach(ticket.sortedMessages) { msg in
-                        TicketMessageRow(message: msg)
+                    ForEach(ticket.sortedMessages) { comment in
+                        TicketCommentRow(comment: comment)
                     }
                 }
                 .padding(24)
@@ -134,61 +152,35 @@ struct TicketDetailView: View {
     }
 }
 
-struct TicketMessageRow: View {
-    let message: TicketMessage
+struct TicketCommentRow: View {
+    let comment: TicketComment
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             // Avatar
-            AsyncImage(url: URL(string: message.author.avatar ?? "")) { img in
-                img.resizable().scaledToFill()
-            } placeholder: {
-                Circle().fill(message.author.bot == true ? Theme.accent : Theme.bgTertiary)
-                    .overlay(Text(String(message.author.username.prefix(1)).uppercased())
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white))
+            ZStack {
+                Circle().fill(Theme.bgTertiary)
+                    .frame(width: 40, height: 40)
+                Text(String(comment.author.prefix(1)).uppercased())
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
             }
-            .frame(width: 40, height: 40)
-            .clipShape(Circle())
             
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .bottom, spacing: 8) {
-                    Text(message.author.username)
+                    Text(comment.author)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     
-                    if message.author.bot == true {
-                        Text("BOT")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(Theme.accent)
-                            .cornerRadius(4)
-                    }
-                    
-                    Text(formatDate(message.timestamp))
+                    Text(formatDate(comment.createdAt))
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
                 }
                 
-                Text(message.content)
+                Text(comment.comment)
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.textPrimary.opacity(0.9))
                     .fixedSize(horizontal: false, vertical: true)
-                
-                if let attachments = message.attachments, !attachments.isEmpty {
-                    ForEach(attachments, id: \.self) { urlString in
-                        if let url = URL(string: urlString) {
-                            Link(destination: url) {
-                                Label("Attachment", systemImage: "paperclip")
-                                    .font(.system(size: 12))
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Theme.accent)
-                        }
-                    }
-                }
             }
             Spacer()
         }

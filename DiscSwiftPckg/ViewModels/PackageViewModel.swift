@@ -202,16 +202,23 @@ class PackageViewModel: ObservableObject {
         // Support_Tickets/tickets.json
         for folder in ["Support_Tickets", "support_tickets", "Tickets", "tickets"] {
             let path = root.appendingPathComponent("\(folder)/tickets.json")
-            if let data = try? Data(contentsOf: path),
-               let tickets = try? JSONDecoder().decode([DiscordTicket].self, from: data) {
-                
-                DispatchQueue.main.async { [weak self] in
-                    self?.stats.tickets = tickets
+            if let data = try? Data(contentsOf: path) {
+                // Discord exports tickets as a dictionary: { "ticket_id": {ticket object} }
+                if let ticketsDict = try? JSONDecoder().decode([String: DiscordTicket].self, from: data) {
+                    let ticketsArray = Array(ticketsDict.values).sorted { t1, t2 in
+                        // Sort by creation date, newest first
+                        t1.createdAt > t2.createdAt
+                    }
+                    
+                    DispatchQueue.main.async { [weak self] in
+                        self?.stats.tickets = ticketsArray
+                    }
+                    log("Found \(ticketsArray.count) tickets")
+                    return
                 }
-                log("Found \(tickets.count) tickets")
-                return
             }
         }
+        log("No tickets found")
     }
     
     // MARK: - Parse Bots
