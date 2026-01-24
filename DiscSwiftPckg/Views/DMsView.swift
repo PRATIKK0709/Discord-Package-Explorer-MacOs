@@ -1,12 +1,12 @@
 import SwiftUI
 
-struct ServersView: View {
+struct DMsView: View {
     @EnvironmentObject var viewModel: PackageViewModel
     @EnvironmentObject var theme: ThemeManager
     @State private var searchText = ""
     
-    var filteredServers: [(name: String, messageCount: Int)] {
-        let list = viewModel.stats.serverList
+    var filteredDMs: [(name: String, messageCount: Int)] {
+        let list = viewModel.stats.dmList
         if searchText.isEmpty {
             return list
         }
@@ -17,13 +17,13 @@ struct ServersView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Servers")
+                Text("Direct Messages")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
                 
                 Spacer()
                 
-                Text("\(viewModel.stats.serverList.count) total")
+               Text("\(filteredDMs.count) total")
                     .font(.system(size: 14))
                     .foregroundStyle(theme.textSecondary)
             }
@@ -37,30 +37,30 @@ struct ServersView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(theme.textSecondary)
-                    TextField("Search servers...", text: $searchText)
+                    TextField("Search DMs...", text: $searchText)
                         .textFieldStyle(.plain)
                 }
                 .padding(10)
                 .background(theme.bgSecondary)
                 .cornerRadius(8)
                 
-                // key stats
+                // Stats
                 HStack(spacing: 12) {
-                     ServerStatPill(title: "Muted", value: "\(viewModel.stats.mutedServerCount)", icon: "speaker.slash.fill", color: .red) // Only keep mute as it's useful
-                     ServerStatPill(title: "Total Messages", value: viewModel.formatNumber(viewModel.stats.serverMessages), icon: "bubble.left.fill", color: .purple)
+                    DMStatPill(title: "Conversations", value: "\(viewModel.stats.dmConversations)", icon: "person.2.fill", color: .blue)
+                    DMStatPill(title: "Total Messages", value: viewModel.formatNumber(viewModel.stats.dmList.reduce(0){ $0 + $1.messageCount }), icon: "bubble.left.fill", color: .purple)
                 }
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
             
-            // Server list (Unified Grid)
+            // DM list (Unified Grid)
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16)], spacing: 16) {
-                    ForEach(Array(filteredServers.enumerated()), id: \.element.name) { index, server in
-                        ServerCard(
-                            name: server.name,
-                            messageCount: server.messageCount,
-                            formattedCount: viewModel.formatNumber(server.messageCount),
+                    ForEach(Array(filteredDMs.enumerated()), id: \.offset) { index, dm in
+                        DMCard(
+                            name: dm.name,
+                            messageCount: dm.messageCount,
+                            formattedCount: viewModel.formatNumber(dm.messageCount),
                             rank: index + 1
                         )
                     }
@@ -73,7 +73,7 @@ struct ServersView: View {
     }
 }
 
-struct ServerStatPill: View {
+struct DMStatPill: View {
     @EnvironmentObject var theme: ThemeManager
     let title: String
     let value: String
@@ -100,7 +100,7 @@ struct ServerStatPill: View {
     }
 }
 
-struct ServerCard: View {
+struct DMCard: View {
     @EnvironmentObject var theme: ThemeManager
     let name: String
     let messageCount: Int
@@ -138,11 +138,11 @@ struct ServerCard: View {
             // Initial
             ZStack {
                 Circle()
-                    .fill(theme.accent.opacity(0.1))
+                    .fill(Color.blue.opacity(0.1))
                     .frame(width: 40, height: 40)
                 Text(String(name.prefix(1)).uppercased())
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(.blue)
             }
             
             // Info
@@ -171,6 +171,6 @@ struct ServerCard: View {
 }
 
 #Preview {
-    ServersView()
+    DMsView()
         .environmentObject(PackageViewModel())
 }

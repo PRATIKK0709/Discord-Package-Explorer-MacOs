@@ -1,18 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - Theme Colors (Keysly White Theme)
-
-struct Theme {
-    static let bgPrimary = Color(hex: 0xFFFFFF)
-    static let bgSecondary = Color(hex: 0xF5F5F7)
-    static let bgTertiary = Color(hex: 0xE5E5EB)
-    static let textPrimary = Color(hex: 0x000000)
-    static let textSecondary = Color(hex: 0x6E6E73)
-    static let accent = Color(hex: 0xFF9500)
-    static let border = Color.black.opacity(0.08)
-}
-
 extension Color {
     init(hex: UInt, alpha: Double = 1) {
         self.init(
@@ -31,14 +19,18 @@ enum NavItem: String, CaseIterable {
     case dashboard = "Dashboard"
     case messages = "Messages"
     case servers = "Servers"
+    case dms = "DMs"
     case tickets = "Tickets"
+    case settings = "Settings"
     
     var icon: String {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .messages: return "bubble.left.and.bubble.right"
         case .servers: return "server.rack"
+        case .dms: return "person.2.fill"
         case .tickets: return "ticket"
+        case .settings: return "gearshape"
         }
     }
 }
@@ -47,12 +39,16 @@ enum NavItem: String, CaseIterable {
 
 struct ContentView: View {
     @EnvironmentObject var viewModel: PackageViewModel
+    @EnvironmentObject var theme: ThemeManager
     @State private var selectedNav: NavItem = .dashboard
     @State private var isDragOver = false
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     
     var body: some View {
         Group {
-            if viewModel.hasLoadedData {
+            if !hasSeenOnboarding {
+                OnboardingView(hasCompletedOnboarding: $hasSeenOnboarding)
+            } else if viewModel.hasLoadedData {
                 mainView
             } else {
                 dropZone
@@ -72,16 +68,16 @@ struct ContentView: View {
                 .frame(width: 200)
                 .frame(minWidth: 200, maxWidth: 200)
                 .layoutPriority(1)
-                .background(Theme.bgSecondary)
+                .background(theme.bgSecondary)
                 .overlay(
-                    Rectangle().fill(Theme.border).frame(width: 1),
+                    Rectangle().fill(theme.border).frame(width: 1),
                     alignment: .trailing
                 )
             
             // Content
             mainContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.bgPrimary)
+                .background(theme.bgPrimary)
         }
     }
     
@@ -91,10 +87,10 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 Image(systemName: "archivebox.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(theme.accent)
                 Text("DISCORD DATA")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
             }
             .padding(.horizontal, 16)
             .padding(.top, 20)
@@ -112,7 +108,7 @@ struct ContentView: View {
             
             // Divider
             Rectangle()
-                .fill(Theme.border)
+                .fill(theme.border)
                 .frame(height: 1)
                 .padding(.vertical, 12)
                 .padding(.horizontal, 16)
@@ -128,7 +124,7 @@ struct ContentView: View {
                         .font(.system(size: 13, weight: .medium))
                     Spacer()
                 }
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .contentShape(Rectangle())
@@ -150,73 +146,104 @@ struct ContentView: View {
             MessagesView()
         case .servers:
             ServersView()
+        case .dms:
+            DMsView()
         case .tickets:
             TicketsView(tickets: viewModel.stats.tickets)
+        case .settings:
+            SettingsView()
         }
     }
     
-    // MARK: - Drop Zone
+    // MARK: - Drop Zone (Onboarding)
     
     private var dropZone: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 32) {
             Spacer()
             
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
-                    .foregroundStyle(isDragOver ? Theme.accent : Theme.textSecondary.opacity(0.3))
-                    .frame(width: 360, height: 240)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(isDragOver ? Theme.accent.opacity(0.05) : .clear)
-                    )
+            // Main Onboarding Card
+            VStack(spacing: 24) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(theme.accent.opacity(0.1))
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "archivebox.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(theme.accent)
+                }
                 
-                VStack(spacing: 16) {
-                    Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 48))
-                        .foregroundStyle(isDragOver ? Theme.accent : Theme.textSecondary)
+                VStack(spacing: 12) {
+                    Text("Welcome to Package Explorer")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(theme.textPrimary)
                     
-                    VStack(spacing: 4) {
-                        Text("Drop Discord Data Package")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                        Text("Drag your 'package' folder here")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Theme.textSecondary)
+                    Text("Visualize and analyze your Discord Data Package.\nDrag and drop your 'package' folder to get started.")
+                        .font(.system(size: 14))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(theme.textSecondary)
+                        .frame(maxWidth: 400)
+                }
+                
+                // Drop Area
+                Button {
+                    selectFolder()
+                } label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                            .foregroundStyle(isDragOver ? theme.accent : theme.border)
+                            .background(isDragOver ? theme.accent.opacity(0.05) : Color.clear)
+                        
+                        HStack(spacing: 12) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 18))
+                            Text("Select Package Folder")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundStyle(isDragOver ? theme.accent : theme.textPrimary)
                     }
-                    
-                    Button("Choose Folder") {
-                        selectFolder()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.accent)
+                    .frame(width: 280, height: 64)
+                }
+                .buttonStyle(.plain)
+                .onDrop(of: [.fileURL], isTargeted: $isDragOver) { providers in
+                    handleDrop(providers)
                 }
             }
-            .onDrop(of: [.fileURL], isTargeted: $isDragOver) { providers in
-                handleDrop(providers)
-            }
+            .padding(40)
+            .background(theme.bgSecondary)
+            .cornerRadius(24)
+            .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: 10)
             
-            // Loading
+            // Loading State
             if viewModel.isLoading {
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     ProgressView(value: viewModel.loadingProgress)
-                        .frame(width: 300)
-                        .tint(Theme.accent)
-                    HStack {
-                        Text(viewModel.loadingStatus)
-                        Spacer()
-                        Text("\(Int(viewModel.loadingProgress * 100))%")
-                    }
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 300)
+                        .frame(width: 200)
+                        .tint(theme.accent)
+                    
+                    Text(viewModel.loadingStatus)
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.textSecondary)
                 }
+                .transition(.opacity)
             }
             
             Spacer()
+            
+            // Footer
+            HStack(spacing: 6) {
+                Text("Open Source Project")
+                Link("View on GitHub", destination: URL(string: "https://github.com/PRATIKK0709/Discord-Package-Explorer-MacOs")!)
+                    .underline()
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(theme.textSecondary)
+            .padding(.bottom, 20)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.bgPrimary)
+        .background(theme.bgPrimary)
     }
     
     private func selectFolder() {
@@ -243,6 +270,7 @@ struct ContentView: View {
 }
 
 struct PluginNavItem: View {
+    @EnvironmentObject var theme: ThemeManager
     let item: NavItem
     let isSelected: Bool
     let action: () -> Void
@@ -254,23 +282,23 @@ struct PluginNavItem: View {
                 Image(systemName: item.icon)
                     .font(.system(size: 14))
                     .frame(width: 20)
-                    .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
+                    .foregroundStyle(isSelected ? theme.accent : theme.textSecondary)
                 
                 Text(item.rawValue)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+                    .foregroundStyle(isSelected ? theme.textPrimary : theme.textSecondary)
                 
                 Spacer()
                 
                 if isSelected {
                     Circle()
-                        .fill(Theme.accent)
+                        .fill(theme.accent)
                         .frame(width: 6, height: 6)
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? Theme.bgTertiary : .clear)
+            .background(isSelected ? theme.bgTertiary : .clear)
             .cornerRadius(8)
         }
         .buttonStyle(.plain)

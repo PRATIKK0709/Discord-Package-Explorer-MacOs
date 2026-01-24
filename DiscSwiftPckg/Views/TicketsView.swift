@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TicketsView: View {
+    @EnvironmentObject var theme: ThemeManager
     let tickets: [DiscordTicket]
     @State private var selectedTicket: DiscordTicket?
     
@@ -10,27 +11,27 @@ struct TicketsView: View {
             VStack(spacing: 16) {
                 Image(systemName: "ticket")
                     .font(.system(size: 48))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                 Text("No Support Tickets")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                 Text("You don't have any support ticket data in this package.")
                     .font(.system(size: 14))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.bgPrimary)
+            .background(theme.bgPrimary)
         } else {
 HStack(spacing: 0) {
             // Sidebar List
             VStack(alignment: .leading, spacing: 0) {
                 Text("Support Tickets")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                     .padding(16)
                 
-                Divider().background(Theme.bgTertiary)
+                Divider().background(theme.bgTertiary)
                 
                 ScrollView {
                     VStack(spacing: 0) {
@@ -44,13 +45,13 @@ HStack(spacing: 0) {
                 }
             }
             .frame(width: 250)
-            .background(Theme.bgSecondary)
+            .background(theme.bgSecondary)
             
-            Divider().background(Theme.bgTertiary)
+            Divider().background(theme.bgTertiary)
             
             // Detail View
             ZStack {
-                Theme.bgPrimary.ignoresSafeArea()
+                theme.bgPrimary.ignoresSafeArea()
                 
                 if let ticket = selectedTicket {
                     TicketDetailView(ticket: ticket)
@@ -58,10 +59,10 @@ HStack(spacing: 0) {
                     VStack(spacing: 12) {
                         Image(systemName: "envelope.open")
                             .font(.system(size: 48))
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                         Text("Select a ticket to view conversation")
                             .font(.system(size: 14))
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                     }
                 }
             }
@@ -76,6 +77,7 @@ HStack(spacing: 0) {
 }
 
 struct TicketRow: View {
+    @EnvironmentObject var theme: ThemeManager
     let ticket: DiscordTicket
     let isSelected: Bool
     
@@ -83,7 +85,7 @@ struct TicketRow: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(ticket.subject ?? "No Subject")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textPrimary.opacity(0.8))
+                .foregroundStyle(isSelected ? theme.textPrimary : theme.textPrimary.opacity(0.8))
                 .lineLimit(1)
             
             HStack {
@@ -95,11 +97,11 @@ struct TicketRow: View {
                 
                 Text(ticket.formattedDate)
                     .font(.system(size: 10))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
             }
         }
         .padding(12)
-        .background(isSelected ? Theme.bgTertiary : Color.clear)
+        .background(isSelected ? theme.bgTertiary : Color.clear)
         .contentShape(Rectangle())
     }
     
@@ -113,6 +115,7 @@ struct TicketRow: View {
 }
 
 struct TicketDetailView: View {
+    @EnvironmentObject var theme: ThemeManager
     let ticket: DiscordTicket
     
     var body: some View {
@@ -121,23 +124,23 @@ struct TicketDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(ticket.subject ?? "Ticket #\(ticket.id)")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                 
                 HStack(spacing: 12) {
                     Label(ticket.status.capitalized, systemImage: "circle.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                     
                     Label("\(ticket.comments.count) comments", systemImage: "bubble.left.and.bubble.right")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                 }
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.bgSecondary)
+            .background(theme.bgSecondary)
             
-            Divider().background(Theme.bgTertiary)
+            Divider().background(theme.bgTertiary)
             
             // Messages
             ScrollView {
@@ -153,33 +156,34 @@ struct TicketDetailView: View {
 }
 
 struct TicketCommentRow: View {
+    @EnvironmentObject var theme: ThemeManager
     let comment: TicketComment
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             // Avatar
             ZStack {
-                Circle().fill(Theme.bgTertiary)
+                Circle().fill(theme.bgTertiary)
                     .frame(width: 40, height: 40)
                 Text(String(comment.author.prefix(1)).uppercased())
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
             }
             
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .bottom, spacing: 8) {
                     Text(comment.author)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
+                        .foregroundStyle(theme.textPrimary)
                     
                     Text(formatDate(comment.createdAt))
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                 }
                 
                 Text(comment.comment)
                     .font(.system(size: 14))
-                    .foregroundStyle(Theme.textPrimary.opacity(0.9))
+                    .foregroundStyle(theme.textPrimary.opacity(0.9))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()

@@ -4,6 +4,7 @@ struct DetailedStatsView: View {
     let stats: DetailedStats
     let rank: Int?
     
+    @EnvironmentObject var theme: ThemeManager
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -14,7 +15,7 @@ struct DetailedStatsView: View {
                     if let rank = rank {
                         Text("#\(rank)")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(theme.accent)
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
@@ -24,7 +25,7 @@ struct DetailedStatsView: View {
                         
                         Text("\(stats.messageCount) messages")
                             .font(.system(size: 16))
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                     }
                     
                     Spacer()
@@ -34,7 +35,7 @@ struct DetailedStatsView: View {
                             .font(.system(size: 12))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Theme.bgTertiary)
+                            .background(theme.bgTertiary)
                             .cornerRadius(4)
                     }
                 }
@@ -52,6 +53,7 @@ struct DetailedStatsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Label("Top Custom Emojis", systemImage: "face.smiling")
                             .font(.headline)
+                            .foregroundStyle(theme.textPrimary)
                         
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
@@ -67,10 +69,11 @@ struct DetailedStatsView: View {
                                         Text("\(emoji.count)")
                                             .font(.caption)
                                             .bold()
+                                            .foregroundStyle(theme.textPrimary)
                                     }
                                     .frame(width: 60)
                                     .padding(8)
-                                    .background(Theme.bgTertiary)
+                                    .background(theme.bgTertiary)
                                     .cornerRadius(8)
                                 }
                             }
@@ -81,7 +84,7 @@ struct DetailedStatsView: View {
                 HStack(alignment: .top, spacing: 24) {
                     // Top Words List
                     if !stats.topWords.isEmpty {
-                        SimpleList(title: "Top Words", icon: "text.format", items: stats.topWords)
+                        SimpleList(title: "Top Words", icon: "textformat", items: stats.topWords)
                     }
                     
                     // Cursed Words List
@@ -102,12 +105,13 @@ struct DetailedStatsView: View {
             }
             .padding(32)
         }
-        .background(Theme.bgPrimary)
+        .background(theme.bgPrimary)
         .frame(minWidth: 500, minHeight: 600)
     }
 }
 
 struct MetricInfoCard: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let value: String
     let icon: String
@@ -116,25 +120,27 @@ struct MetricInfoCard: View {
         HStack {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(theme.accent)
                 .frame(width: 32)
             
             VStack(alignment: .leading) {
                 Text(value)
                     .font(.headline)
+                    .foregroundStyle(theme.textPrimary)
                 Text(title)
                     .font(.caption)
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.bgSecondary)
+        .background(theme.cardBg)
         .cornerRadius(8)
     }
 }
 
 struct SimpleList: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let icon: String
     let items: [(String, Int)]
@@ -143,32 +149,34 @@ struct SimpleList: View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: icon)
                 .font(.headline)
+                .foregroundStyle(theme.textPrimary)
             
             if items.isEmpty {
                 Text("None")
                     .font(.caption)
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
             } else {
                 ForEach(Array(items.prefix(10).enumerated()), id: \.offset) { idx, item in
                     HStack {
                         Text("\(idx + 1).")
                             .font(.caption)
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                             .frame(width: 24, alignment: .leading)
                         
                         Text(item.0)
                             .font(.system(size: 12))
                             .lineLimit(1)
                             .truncationMode(.middle)
+                            .foregroundStyle(theme.textPrimary)
                         
                         Spacer()
                         
                         Text("\(item.1)")
                             .font(.caption)
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                     }
                     .padding(8)
-                    .background(idx % 2 == 0 ? Theme.bgTertiary : .clear)
+                    .background(idx % 2 == 0 ? theme.bgTertiary : .clear)
                     .cornerRadius(4)
                 }
             }

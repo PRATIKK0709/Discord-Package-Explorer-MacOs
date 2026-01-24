@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TransactionsView: View {
+    @EnvironmentObject var theme: ThemeManager
     let payments: [DiscordPayment]
     
     // Calculate total spent by currency - Simplified for mainly USD as per example
@@ -18,25 +19,25 @@ struct TransactionsView: View {
         HStack(spacing: 16) {
             Image(systemName: "banknote.fill")
                 .font(.system(size: 32))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(theme.accent)
                 .frame(width: 64, height: 64)
-                .background(Theme.bgTertiary)
+                .background(theme.bgTertiary)
                 .cornerRadius(12)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Total Spent on Discord")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                 
                 Text(totalSpent)
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
             }
             
             Spacer()
         }
         .padding(24)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(16)
     }
 }

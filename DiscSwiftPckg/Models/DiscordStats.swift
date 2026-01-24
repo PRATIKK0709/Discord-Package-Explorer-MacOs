@@ -61,6 +61,7 @@ struct DiscordStats {
     var serverCount: Int = 0
     var serverNames: [String] = []
     var serverList: [(name: String, messageCount: Int)] = []
+    var dmList: [(name: String, messageCount: Int)] = []
     var serverChannelCount: Int = 0
     var serverMessages: Int = 0
     var mutedServerCount: Int = 0

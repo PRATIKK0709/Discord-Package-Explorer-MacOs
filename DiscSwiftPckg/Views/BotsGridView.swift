@@ -1,46 +1,38 @@
 import SwiftUI
 
 struct BotsGridView: View {
+    @EnvironmentObject var theme: ThemeManager
     let bots: [DiscordBot]
     
     var body: some View {
-        HStack(spacing: 0) {
-            // Stylized Side Header (Simplified)
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
                 Image(systemName: "applescript")
-                    .font(.system(size: 24))
-                    .foregroundStyle(Theme.accent)
-                    .padding(.bottom, 8)
-                
+                    .foregroundStyle(theme.accent)
                 Text("My Bots")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                
-                Text("\(bots.count) apps")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.6))
-                
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
                 Spacer()
+                Text("\(bots.count) apps")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
             }
-            .padding(16)
-            .background(Color(red: 0.12, green: 0.12, blue: 0.14)) // Darker side panel
-            .frame(width: 90)
             
-            // Grid Section - Dynamic
+            // Grid Section
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 50), spacing: 8)], spacing: 8) {
                 ForEach(bots) { bot in
                     BotCard(bot: bot)
                 }
             }
-            .padding(16)
         }
-        .background(Theme.bgSecondary)
-        .cornerRadius(16)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(16)
+        .background(theme.bgSecondary)
+        .cornerRadius(12)
     }
 }
 
 struct BotCard: View {
+    @EnvironmentObject var theme: ThemeManager
     let bot: DiscordBot
     private let cardSize: CGFloat = 50
     
@@ -58,15 +50,15 @@ struct BotCard: View {
                      AsyncImage(url: URL(string: "https://cdn.discordapp.com/app-icons/\(bot.id)/\(iconHash).png?size=128")) { image in
                          image.resizable().scaledToFill()
                      } placeholder: {
-                         Rectangle().fill(Theme.bgTertiary)
+                         Rectangle().fill(theme.bgTertiary)
                      }
                 } else {
                     Rectangle()
-                        .fill(Theme.bgTertiary)
+                        .fill(theme.bgTertiary)
                         .overlay(
                             Image(systemName: "applescript")
                                 .font(.system(size: 16))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                         )
                 }
             }
@@ -91,7 +83,7 @@ struct BotCard: View {
         }
         .frame(width: cardSize, height: cardSize)
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.bgTertiary, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.bgTertiary, lineWidth: 1))
         .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
         .help(bot.name)
     }

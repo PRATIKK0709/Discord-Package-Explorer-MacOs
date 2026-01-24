@@ -12,6 +12,8 @@ class PackageViewModel: ObservableObject {
     @Published var debugLog: [String] = []
     
     private var startTime: Date?
+    private var lastProgressUpdate: Date = Date.distantPast
+    private let progressUpdateInterval: TimeInterval = 0.1 // Update UI at most every 100ms
     var packageRoot: URL?
     
     private func log(_ msg: String) {
@@ -31,12 +33,17 @@ class PackageViewModel: ObservableObject {
         
         log("Starting scan: \(url.lastPathComponent)")
         
-        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
+        DispatchQueue.global(qos: .utility).async { [weak self] in
             self?.parsePackage(at: url)
         }
     }
     
-    private func updateProgress(_ progress: Double, _ status: String) {
+    private func updateProgress(_ progress: Double, _ status: String, force: Bool = false) {
+        let now = Date()
+        // Throttle: only update if forced or interval has passed
+        guard force || now.timeIntervalSince(lastProgressUpdate) >= progressUpdateInterval else { return }
+        lastProgressUpdate = now
+        
         DispatchQueue.main.async { [weak self] in
             self?.loadingProgress = progress
             self?.loadingStatus = status
@@ -57,7 +64,7 @@ class PackageViewModel: ObservableObject {
         log("Root: \(root.lastPathComponent)")
         
         // 1. Parse user.json
-        updateProgress(0.05, "Loading user...")
+        updateProgress(0.05, "Loading user...", force: true)
         parseUser(at: root)
         
         // 2. Parse servers
@@ -78,7 +85,7 @@ class PackageViewModel: ObservableObject {
         updateProgress(0.95, "Loading tickets...")
         parseTickets(at: root)
         
-        updateProgress(1.0, "Complete!")
+        updateProgress(1.0, "Complete!", force: true)
         
         log("Done: \(stats.messageCount) messages")
         
@@ -410,24 +417,36 @@ class PackageViewModel: ObservableObject {
         
         // Pre-compute local emoji map once
         let safeLocalEmojiMap = self.localEmojiMap
-        // Load message index for naming DMs or Channels if needed
+// Load message index for naming DMs or Channels if needed
         let loadedMessageIndex = (try? JSONSerialization.jsonObject(with: Data(contentsOf: messagesRoot.appendingPathComponent("index.json")))) as? [String: String] ?? [:]
         
-        // 3. Batched Concurrent Execution
+        // IMPROVEMENT: Load Server Name Index FIRST to validate extracted names (Fixes 18K phantom servers)
+        var knownServerNames = Set<String>()
+        if let data = try? Data(contentsOf: root.appendingPathComponent("Servers/index.json")),
+           let sIndex = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+            knownServerNames = Set(sIndex.values)
+        }
+
+        // 3. Batched Concurrent Execution with LIMITED concurrency
         log("Scanning \(allChannelFolders.count) channels with optimized batching...")
         
-        let batchSize = 20 // Process 20 channels concurrently max
+        let batchSize = 20 // Process 20 channels per batch
         let chunks = stride(from: 0, to: allChannelFolders.count, by: batchSize).map {
             Array(allChannelFolders[$0..<min($0 + batchSize, allChannelFolders.count)])
         }
         
         let queue = DispatchQueue(label: "com.discswift.messages", attributes: .concurrent)
         let group = DispatchGroup()
+        let semaphore = DispatchSemaphore(value: 2) // LIMIT: Only 2 concurrent batches at a time
         
         for (index, chunk) in chunks.enumerated() {
             group.enter()
             queue.async { [weak self] in
-                defer { group.leave() }
+                semaphore.wait() // Acquire slot
+                defer { 
+                    semaphore.signal() // Release slot
+                    group.leave() 
+                }
                 
                 for folder in chunk {
                     var localMsgCount = 0
@@ -451,6 +470,7 @@ class PackageViewModel: ObservableObject {
                     // Detailed Stats Accumulators
                     var localServerStats: [String: StatsAccumulator] = [:]
                     var localDMStats: [String: StatsAccumulator] = [:]
+                    var localDMNames: [String: String] = [:] // Store better names found locally
                     
                     var chId = folder.lastPathComponent
                     let channelFile = folder.appendingPathComponent("channel.json")
@@ -473,6 +493,14 @@ class PackageViewModel: ObservableObject {
                         if let cid = cJson["id"] as? String {
                             chId = cid
                         }
+                        
+                        // Extract Recipients for better DM naming (Fixes "Unknown Participant")
+                        if let recipients = cJson["recipients"] as? [[String: Any]] {
+                            let names = recipients.compactMap { $0["global_name"] as? String ?? $0["username"] as? String }
+                            if !names.isEmpty {
+                                localDMNames[chId] = names.joined(separator: ", ")
+                            }
+                        }
                     }
                     
                     // Fallback to folder structure if guildId missing
@@ -493,13 +521,22 @@ class PackageViewModel: ObservableObject {
                              }
                         }
                         
-                        // Legacy/Fallback Logic: Try to extract Server Name from index.json name
+                        /* Restored & Improved: Fallback logic for Server detection
                         // Pattern: "channel-name in Server Name"
+                        // This is crucial because many exports lack channel.json or folder structure
+                        */
                         if guildId == nil, let name = loadedMessageIndex[chId] {
                             if let range = name.range(of: " in ", options: .backwards) {
                                 let serverName = String(name[range.upperBound...])
-                                if !serverName.isEmpty {
-                                    // Use Server Name as a Virtual Guild ID
+                                
+                                // STRICT VALIDATION: Only accept if it matches a KNOWN server in Servers/index.json
+                                // This prevents "Unknown channel in User" (DMs) from being counted as Servers
+                                if !serverName.isEmpty && 
+                                   serverName != "Direct Messages" && 
+                                   serverName != "Group Direct Messages" &&
+                                   knownServerNames.contains(serverName) {
+                                    
+                                    // It's a valid Verified Server Name
                                     guildId = serverName
                                 }
                             }
@@ -690,7 +727,10 @@ class PackageViewModel: ObservableObject {
                         dmStats[dmid, default: StatsAccumulator()].merge(other: acc)
                         
                         // FIX: Correctly update DM Channel Info in valid scope
-                        if dmChannelInfos[dmid] == nil {
+                        // Prioritize better name found locally (recipients)
+                        if let betterName = localDMNames[dmid] {
+                            dmChannelInfos[dmid] = betterName
+                        } else if dmChannelInfos[dmid] == nil {
                              dmChannelInfos[dmid] = loadedMessageIndex[dmid] ?? "Unknown DM"
                         }
                     }
@@ -817,6 +857,14 @@ class PackageViewModel: ObservableObject {
             return createDetailedStats(id: id, name: cleanName, acc: acc)
         }.sorted { $0.messageCount > $1.messageCount }.prefix(20).map { $0 }
         
+        let allDMs = dmStats.map { (id, acc) in
+            let rawName = dmChannelInfos[id] ?? "Unknown DM"
+            var cleanName = rawName.replacingOccurrences(of: "Direct Message with ", with: "")
+            cleanName = cleanName.replacingOccurrences(of: "Unknown channel in ", with: "") // Clean "Unknown channel in X"
+            cleanName = cleanName.replacingOccurrences(of: " in Direct Messages", with: "")
+            return (name: cleanName, messageCount: acc.messageCount)
+        }.sorted { $0.messageCount > $1.messageCount }
+        
         let topCursed = cursedCounts.sorted { $0.value > $1.value }.prefix(50).map { ($0.key, $0.value) }
         let topLinks = linkCounts.sorted { $0.value > $1.value }.prefix(50).map { ($0.key, $0.value) }
         let topDiscordLinks = discordLinkCounts.sorted { $0.value > $1.value }.prefix(50).map { ($0.key, $0.value) }
@@ -838,13 +886,13 @@ class PackageViewModel: ObservableObject {
             self.stats.topWords = topWords
             self.stats.topCustomEmojis = topEmojis
             self.stats.topServers = Array(topServers) // Explicitly cast if needed, though map returns array
-            self.stats.topServers = Array(topServers) // Explicitly cast if needed, though map returns array
             self.stats.serverList = allServers
             
             // Calculate total server messages
             self.stats.serverMessages = allServers.reduce(0) { $0 + $1.messageCount }
             
             self.stats.topDMs = Array(topDMs)
+            self.stats.dmList = allDMs
             self.stats.topCursedWords = topCursed
             self.stats.topLinks = topLinks
             self.stats.topDiscordLinks = topDiscordLinks

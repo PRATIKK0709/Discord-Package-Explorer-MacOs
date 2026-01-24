@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject var viewModel: PackageViewModel
+    @EnvironmentObject var theme: ThemeManager
     
     var body: some View {
         ScrollView {
@@ -17,34 +18,9 @@ struct DashboardView: View {
                 // Main stats cards
                 statsGrid
                 
-                // Tickets Entry
-                if !viewModel.stats.tickets.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "ticket.fill")
-                                .foregroundStyle(Theme.accent)
-                            Text("Support Tickets")
-                                .font(.system(size: 16, weight: .semibold))
-                            Spacer()
-                            Text("\(viewModel.stats.tickets.count) tickets")
-                                .font(.system(size: 11))
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                        
-                        Button {
-                        } label: {
-                           EmptyView() 
-                        }
-                        
-                        TicketsView(tickets: viewModel.stats.tickets)
-                            .frame(height: 500)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.bgTertiary, lineWidth: 1))
-                    }
-                    .padding(16)
-                    .background(Theme.bgSecondary)
-                    .cornerRadius(12)
-                }
+                
+                // Tickets section removed - available in dedicated Tickets tab
+
                 
                 // Top custom emojis with images
                 topEmojisSection
@@ -69,7 +45,7 @@ struct DashboardView: View {
             }
             .padding(32)
         }
-        .background(Theme.bgPrimary)
+        .background(theme.bgPrimary)
     }
     
     // MARK: - Header
@@ -111,7 +87,7 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(viewModel.stats.user?.globalName ?? viewModel.stats.user?.username ?? "Discord User")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                 
                 HStack(spacing: 12) {
                     if let user = viewModel.stats.user {
@@ -123,13 +99,13 @@ struct DashboardView: View {
                     }
                 }
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
             }
             
             Spacer()
         }
         .padding(20)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(12)
     }
     
@@ -138,7 +114,7 @@ struct DashboardView: View {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [Theme.accent, Theme.accent.opacity(0.7)],
+                        colors: [theme.accent, theme.accent.opacity(0.7)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -164,9 +140,9 @@ struct DashboardView: View {
         }
         return Image(systemName: icon)
             .font(.system(size: 14))
-            .foregroundStyle(Theme.textSecondary)
+            .foregroundStyle(theme.textSecondary)
             .frame(width: 28, height: 28)
-            .background(Theme.bgTertiary)
+            .background(theme.bgTertiary)
             .cornerRadius(6)
     }
     
@@ -193,19 +169,19 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "photo.stack")
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(theme.accent)
                 Text("Avatar History")
                     .font(.system(size: 16, weight: .semibold))
                 Spacer()
                 Text("\(viewModel.stats.recentAvatars.count) found")
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
             }
             
             if viewModel.stats.recentAvatars.isEmpty {
                 Text("No historical avatars found")
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             } else {
@@ -221,14 +197,14 @@ struct DashboardView: View {
                             }
                             .frame(width: 80, height: 80)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.bgTertiary, lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.bgTertiary, lineWidth: 1))
                         }
                     }
                 }
             }
         }
         .padding(20)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(12)
     }
     
@@ -238,16 +214,17 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "face.smiling.inverse")
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(theme.accent)
                 Text("Your Top Custom Emojis")
                     .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
                 Spacer()
             }
             
             if viewModel.stats.topCustomEmojis.isEmpty {
                 Text("No custom emoji data found")
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
             } else {
                 // Grid of emoji images - Right aligned, bigger
                 HStack {
@@ -261,7 +238,7 @@ struct DashboardView: View {
             }
         }
         .padding(20)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(12)
     }
     
@@ -274,17 +251,18 @@ struct DashboardView: View {
                 HStack {
                     Text("Activity by Hour")
                         .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.textPrimary)
                     Spacer()
                     Text("Peak: \(viewModel.stats.mostActiveHour):00")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                 }
                 
                 HourlyChartView(data: viewModel.stats.messagesByHour)
                     .frame(height: 80)
             }
             .padding(16)
-            .background(Theme.bgSecondary)
+            .background(theme.bgSecondary)
             .cornerRadius(12)
             
             // Daily chart
@@ -292,17 +270,18 @@ struct DashboardView: View {
                 HStack {
                     Text("Activity by Day")
                         .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.textPrimary)
                     Spacer()
                     Text("Peak: \(viewModel.stats.mostActiveDay)")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                 }
                 
                 DailyChartView(data: viewModel.stats.messagesByDay)
                     .frame(height: 80)
             }
             .padding(16)
-            .background(Theme.bgSecondary)
+            .background(theme.bgSecondary)
             .cornerRadius(12)
         }
     }
@@ -315,30 +294,31 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Label("Global Favorite Words", systemImage: "text.quote")
                     .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
                 
                 FlowLayout(spacing: 8) {
                     ForEach(viewModel.stats.topWords.prefix(25), id: \.word) { item in
                         HStack(spacing: 4) {
                             Text(item.word)
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Theme.textPrimary)
+                                .foregroundStyle(theme.textPrimary)
                             Text("\(item.count)")
                                 .font(.system(size: 10))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Theme.bgSecondary)
+                        .background(theme.bgSecondary)
                         .cornerRadius(6)
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
-                                .stroke(Theme.bgTertiary, lineWidth: 1)
+                                .stroke(theme.bgTertiary, lineWidth: 1)
                         )
                     }
                 }
             }
             .padding(20)
-            .background(Theme.bgSecondary.opacity(0.5))
+            .background(theme.bgSecondary.opacity(0.5))
             .cornerRadius(12)
             
             // Rich Top Lists
@@ -356,6 +336,7 @@ struct DashboardView: View {
 // MARK: - Emoji Image View
 
 struct EmojiImageView: View {
+    @EnvironmentObject var theme: ThemeManager
     let emoji: (name: String, id: String, count: Int, imageURL: String)
     
     var body: some View {
@@ -373,7 +354,7 @@ struct EmojiImageView: View {
                         case .failure(_):
                             Image(systemName: "face.smiling")
                                 .font(.system(size: 32))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                         case .empty:
                             ProgressView()
                         @unknown default:
@@ -383,12 +364,12 @@ struct EmojiImageView: View {
                 }
             }
             .frame(width: 48, height: 48)
-            .background(Theme.bgTertiary)
+            .background(theme.bgTertiary)
             .cornerRadius(8)
             
             Text(":\(emoji.name):")
                 .font(.system(size: 10))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
                 .lineLimit(1)
                 .frame(width: 64)
         }
@@ -400,6 +381,7 @@ struct EmojiImageView: View {
 // MARK: - Stat Card
 
 struct StatCard: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let value: String
     let subtitle: String
@@ -417,18 +399,18 @@ struct StatCard: View {
             
             Text(value)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
+                .foregroundStyle(theme.textPrimary)
             
             Text(title)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.textPrimary)
+                .foregroundStyle(theme.textPrimary)
             
             Text(subtitle)
                 .font(.system(size: 10))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
         }
         .padding(16)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(12)
     }
 }
@@ -438,6 +420,7 @@ struct StatCard: View {
 // MARK: - Charts
 
 struct HourlyChartView: View {
+    @EnvironmentObject var theme: ThemeManager
     let data: [Int]
     
     // Normalize data for the chart
@@ -466,7 +449,7 @@ struct HourlyChartView: View {
                 SmoothShape(points: points, isClosed: true)
                     .fill(
                         LinearGradient(
-                            colors: [Theme.accent.opacity(0.4), Theme.accent.opacity(0.05)],
+                            colors: [theme.accent.opacity(0.4), theme.accent.opacity(0.05)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -474,7 +457,7 @@ struct HourlyChartView: View {
                 
                 // Stroke
                 SmoothShape(points: points, isClosed: false)
-                    .stroke(Theme.accent, lineWidth: 2)
+                    .stroke(theme.accent, lineWidth: 2)
                 
                 // Labels (simplistic)
                 VStack {
@@ -491,7 +474,7 @@ struct HourlyChartView: View {
                         Text("23")
                     }
                     .font(.system(size: 9))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                 }
             }
         }
@@ -506,6 +489,7 @@ struct HourlyChartView: View {
 }
 
 struct DailyChartView: View {
+    @EnvironmentObject var theme: ThemeManager
     let data: [Int]
     let days = ["M", "T", "W", "T", "F", "S", "S"]
     
@@ -534,7 +518,7 @@ struct DailyChartView: View {
                 SmoothShape(points: points, isClosed: true)
                     .fill(
                         LinearGradient(
-                            colors: [Theme.accent.opacity(0.4), Theme.accent.opacity(0.05)],
+                            colors: [theme.accent.opacity(0.4), theme.accent.opacity(0.05)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -542,7 +526,7 @@ struct DailyChartView: View {
                 
                 // Stroke
                 SmoothShape(points: points, isClosed: false)
-                    .stroke(Theme.accent, lineWidth: 2)
+                    .stroke(theme.accent, lineWidth: 2)
                 
                 // Labels
                 VStack {
@@ -551,7 +535,7 @@ struct DailyChartView: View {
                         ForEach(0..<days.count, id: \.self) { i in
                             Text(days[i])
                                 .font(.system(size: 9))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -615,6 +599,7 @@ struct SmoothShape: Shape {
 // MARK: - Top List Card
 
 struct TopListCard: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let icon: String
     let items: [(String, String)]
@@ -623,15 +608,16 @@ struct TopListCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(theme.accent)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
             }
             
             if items.isEmpty {
                 Text("No data")
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                     .padding(.vertical, 20)
             } else {
                 VStack(spacing: 6) {
@@ -639,15 +625,16 @@ struct TopListCard: View {
                         HStack {
                             Text("\(idx + 1)")
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                                 .frame(width: 16)
                             Text(item.0)
                                 .font(.system(size: 12))
                                 .lineLimit(1)
+                                .foregroundStyle(theme.textPrimary)
                             Spacer()
                             Text(item.1)
                                 .font(.system(size: 11))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                         }
                     }
                 }
@@ -657,7 +644,7 @@ struct TopListCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(12)
     }
 }
@@ -685,6 +672,7 @@ struct GifImageView: NSViewRepresentable {
 
 
 struct RichTopListCard: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let icon: String
     let items: [DetailedStats]
@@ -693,16 +681,17 @@ struct RichTopListCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(theme.accent)
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
                 Spacer()
             }
             
             if items.isEmpty {
                 Text("No data")
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                     .padding(.vertical, 20)
             } else {
                 VStack(spacing: 12) {
@@ -715,12 +704,13 @@ struct RichTopListCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(12)
     }
 }
 
 struct RichStatRow: View {
+    @EnvironmentObject var theme: ThemeManager
     let rank: Int
     let stats: DetailedStats
     
@@ -729,7 +719,7 @@ struct RichStatRow: View {
             // Rank
             Text("\(rank)")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(theme.accent)
                 .frame(width: 20)
             
             // Name & Primary Info
@@ -737,6 +727,7 @@ struct RichStatRow: View {
                 Text(stats.name)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
+                    .foregroundStyle(theme.textPrimary)
                 
                 HStack(spacing: 8) {
                     // Small badges for stats
@@ -758,7 +749,7 @@ struct RichStatRow: View {
                                 .foregroundStyle(.orange)
                             Text("\(cursedCount)")
                                 .font(.system(size: 9))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                         }
                         .help("\(cursedCount) cursed words")
                     }
@@ -771,7 +762,7 @@ struct RichStatRow: View {
                                 .foregroundStyle(.blue)
                             Text("\(linkCount)")
                                 .font(.system(size: 9))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                         }
                          .help("\(linkCount) links shared")
                     }
@@ -783,10 +774,10 @@ struct RichStatRow: View {
             // Message Count
             Text("\(stats.messageCount)")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
+                .foregroundStyle(theme.textPrimary)
         }
         .padding(10)
-        .background(Theme.bgTertiary.opacity(0.5))
+        .background(theme.bgTertiary.opacity(0.5))
         .cornerRadius(8)
     }
 }

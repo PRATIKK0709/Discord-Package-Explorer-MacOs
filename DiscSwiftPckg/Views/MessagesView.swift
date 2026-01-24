@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MessagesView: View {
     @EnvironmentObject var viewModel: PackageViewModel
+    @EnvironmentObject var theme: ThemeManager
     
     var body: some View {
         ScrollView {
@@ -9,7 +10,7 @@ struct MessagesView: View {
                 // Header
                 Text("Messages")
                     .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                 
                 // Stats cards
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
@@ -25,17 +26,17 @@ struct MessagesView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Image(systemName: "person.2.wave.2.fill")
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(theme.accent)
                         Text("Top DM Conversations")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
+                            .foregroundStyle(theme.textPrimary)
                     }
                     .padding(.bottom, 4)
                     
                     if viewModel.stats.topDMs.isEmpty {
                         Text("No DM data available")
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                     } else {
                         ForEach(Array(viewModel.stats.topDMs.enumerated()), id: \.offset) { idx, dm in
                             DetailedStatsRow(rank: idx + 1, stats: dm)
@@ -43,24 +44,24 @@ struct MessagesView: View {
                     }
                 }
                 .padding(20)
-                .background(Theme.bgSecondary)
+                .background(theme.bgSecondary)
                 .cornerRadius(16)
                 
                 // Top Servers
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Image(systemName: "server.rack")
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(theme.accent)
                         Text("Top Servers")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
+                            .foregroundStyle(theme.textPrimary)
                     }
                     .padding(.bottom, 4)
                     
                     if viewModel.stats.topServers.isEmpty {
                         Text("No server data available")
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                     } else {
                         ForEach(Array(viewModel.stats.topServers.enumerated()), id: \.offset) { idx, srv in
                             DetailedStatsRow(rank: idx + 1, stats: srv)
@@ -68,14 +69,14 @@ struct MessagesView: View {
                     }
                 }
                 .padding(20)
-                .background(Theme.bgSecondary)
+                .background(theme.bgSecondary)
                 .cornerRadius(16)
                 
                 
                 // --- Word Analysis Section ---
                 Text("Word Analysis")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                     .padding(.top, 16)
                 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
@@ -89,7 +90,7 @@ struct MessagesView: View {
                 // --- Link Analysis Section ---
                 Text("Link Analysis")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                     .padding(.top, 16)
                 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
@@ -104,12 +105,13 @@ struct MessagesView: View {
             }
             .padding(32)
         }
-        .background(Theme.bgPrimary)
+        .background(theme.bgPrimary)
     }
 }
 
 // Helper View for Lists
 struct RichAnalysisCard: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let icon: String // Added icon
     let data: [(String, Int)]
@@ -127,7 +129,7 @@ struct RichAnalysisCard: View {
                 
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                 
                 Spacer()
             }
@@ -135,7 +137,7 @@ struct RichAnalysisCard: View {
             if data.isEmpty {
                 Text("No data available")
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             } else {
@@ -151,33 +153,34 @@ struct RichAnalysisCard: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .lineLimit(1)
                                 .truncationMode(.middle)
-                                .foregroundStyle(Theme.textPrimary)
+                                .foregroundStyle(theme.textPrimary)
                             
                             Spacer()
                             
                             Text("\(item.1)")
                                 .font(.system(size: 12, weight: .semibold)) // Bold count
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(theme.textSecondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Theme.bgTertiary)
+                                .background(theme.bgTertiary)
                                 .cornerRadius(4)
                         }
                         .padding(8)
-                        .background(idx % 2 == 0 ? Theme.bgTertiary.opacity(0.5) : .clear)
+                        .background(idx % 2 == 0 ? theme.bgTertiary.opacity(0.5) : .clear)
                         .cornerRadius(6)
                     }
                 }
             }
         }
         .padding(16)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(16) // Rounder corners
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }
 
 struct MsgStatCard: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let value: String
     let icon: String // Added icon
@@ -198,15 +201,15 @@ struct MsgStatCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(value)
                     .font(.system(size: 24, weight: .bold)) // Slightly smaller but bolder
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(theme.textPrimary)
                 Text(title)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.bgSecondary)
+        .background(theme.bgSecondary)
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -216,6 +219,7 @@ struct MsgStatCard: View {
 }
 
 struct DetailedStatsRow: View {
+    @EnvironmentObject var theme: ThemeManager
     let rank: Int
     let stats: DetailedStats
     @State private var showDetails = false
@@ -224,34 +228,26 @@ struct DetailedStatsRow: View {
         HStack {
             Text("\(rank)")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(theme.accent)
                 .frame(width: 24)
             
             Text(stats.name)
                 .font(.system(size: 13))
                 .lineLimit(1)
+                .foregroundStyle(theme.textPrimary)
             
             Spacer()
             
-            // Preview Stats
-            if !stats.topEmojis.isEmpty {
-                Text(stats.topEmojis.first?.name ?? "")
-                     .font(.caption2)
-                     .padding(4)
-                     .background(Theme.bgTertiary)
-                     .cornerRadius(4)
-            }
-            
             Text("\(stats.messageCount) msgs")
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
             
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
         }
         .padding(12)
-        .background(rank % 2 == 0 ? Theme.bgTertiary : Color.clear)
+        .background(rank % 2 == 0 ? theme.bgTertiary : Color.clear)
         .cornerRadius(8)
         .contentShape(Rectangle())
         .onTapGesture {
