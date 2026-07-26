@@ -1,0 +1,15 @@
+{
+  "id" : "9004",
+  "name" : "Jamie & Taylor",
+  "recipients" : [
+    {
+      "global_name" : "Jamie",
+      "username" : "jamie"
+    },
+    {
+      "global_name" : "Taylor",
+      "username" : "taylor"
+    }
+  ],
+  "type" : 3
+}

@@ -1,0 +1,8 @@
+{
+  "bot_token" : null,
+  "description" : "Collects release notes for community-made projects.",
+  "icon" : null,
+  "id" : "7008",
+  "name" : "Launch Notes",
+  "public_key" : null
+}

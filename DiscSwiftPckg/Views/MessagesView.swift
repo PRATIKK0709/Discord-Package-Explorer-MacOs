@@ -1,265 +1,109 @@
 import SwiftUI
 
 struct MessagesView: View {
-    @EnvironmentObject var viewModel: PackageViewModel
-    @EnvironmentObject var theme: ThemeManager
-    
+    @EnvironmentObject private var viewModel: PackageViewModel
+    @EnvironmentObject private var theme: ThemeManager
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Header
-                Text("Messages")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-                
-                // Stats cards
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    MsgStatCard(title: "Total Messages", value: viewModel.formatNumber(viewModel.stats.messageCount), icon: "bubble.left.and.bubble.right.fill", color: .blue)
-                    MsgStatCard(title: "DM Messages", value: viewModel.formatNumber(viewModel.stats.dmMessages), icon: "person.2.fill", color: .indigo)
-                    MsgStatCard(title: "Server Messages", value: viewModel.formatNumber(viewModel.stats.serverMessages), icon: "server.rack", color: .orange)
-                    MsgStatCard(title: "Total Words", value: viewModel.formatNumber(viewModel.stats.wordCount), icon: "text.quote", color: .purple)
-                    MsgStatCard(title: "Conversations", value: "\(viewModel.stats.dmConversations + viewModel.stats.groupDMCount)", icon: "bubble.left.fill", color: .pink)
-                    MsgStatCard(title: "Channels Used", value: "\(viewModel.stats.serverChannelCount)", icon: "number", color: .green)
-                }
-                
-                // Top DMs
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "person.2.wave.2.fill")
-                            .foregroundStyle(theme.accent)
-                        Text("Top DM Conversations")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(theme.textPrimary)
-                    }
-                    .padding(.bottom, 4)
-                    
-                    if viewModel.stats.topDMs.isEmpty {
-                        Text("No DM data available")
-                            .font(.system(size: 13))
-                            .foregroundStyle(theme.textSecondary)
-                    } else {
-                        ForEach(Array(viewModel.stats.topDMs.enumerated()), id: \.offset) { idx, dm in
-                            DetailedStatsRow(rank: idx + 1, stats: dm)
-                        }
-                    }
-                }
-                .padding(20)
-                .background(theme.bgSecondary)
-                .cornerRadius(16)
-                
-                // Top Servers
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "server.rack")
-                            .foregroundStyle(theme.accent)
-                        Text("Top Servers")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(theme.textPrimary)
-                    }
-                    .padding(.bottom, 4)
-                    
-                    if viewModel.stats.topServers.isEmpty {
-                        Text("No server data available")
-                            .font(.system(size: 13))
-                            .foregroundStyle(theme.textSecondary)
-                    } else {
-                        ForEach(Array(viewModel.stats.topServers.enumerated()), id: \.offset) { idx, srv in
-                            DetailedStatsRow(rank: idx + 1, stats: srv)
-                        }
-                    }
-                }
-                .padding(20)
-                .background(theme.bgSecondary)
-                .cornerRadius(16)
-                
-                
-                // --- Word Analysis Section ---
-                Text("Word Analysis")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-                    .padding(.top, 16)
-                
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    // Top Words
-                    RichAnalysisCard(title: "Favorite Words", icon: "text.quote", data: viewModel.stats.topWords, color: .blue)
-                    
-                    // Cursed Words
-                    RichAnalysisCard(title: "Cursed Words", icon: "exclamationmark.triangle.fill", data: viewModel.stats.topCursedWords, color: .red)
-                }
-                
-                // --- Link Analysis Section ---
-                Text("Link Analysis")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-                    .padding(.top, 16)
-                
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    // Top Links
-                    RichAnalysisCard(title: "Top Links", icon: "link", data: viewModel.stats.topLinks, color: .cyan)
-                    
-                    // Discord Links
-                    RichAnalysisCard(title: "Discord Invites", icon: "person.badge.plus", data: viewModel.stats.topDiscordLinks, color: .indigo)
-                }
-                
-                Spacer(minLength: 40)
+            VStack(alignment: .leading, spacing: 38) {
+                pageHeader
+                totals
+                destinations
+                analysis
             }
-            .padding(32)
+            .padding(.horizontal, 42)
+            .padding(.vertical, 36)
         }
         .background(theme.bgPrimary)
     }
-}
 
-// Helper View for Lists
-struct RichAnalysisCard: View {
-    @EnvironmentObject var theme: ThemeManager
-    let title: String
-    let icon: String // Added icon
-    let data: [(String, Int)]
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
-                    .font(.system(size: 14, weight: .semibold))
-                    .padding(6)
-                    .background(color.opacity(0.1))
-                    .clipShape(Circle())
-                
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary)
-                
-                Spacer()
-            }
-            
-            if data.isEmpty {
-                Text("No data available")
-                    .font(.system(size: 13))
-                    .foregroundStyle(theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(Array(data.prefix(10).enumerated()), id: \.offset) { idx, item in
-                        HStack {
-                            Text("\(idx + 1)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(color.opacity(0.8))
-                                .frame(width: 20)
-                            
-                            Text(item.0)
-                                .font(.system(size: 13, weight: .medium))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .foregroundStyle(theme.textPrimary)
-                            
-                            Spacer()
-                            
-                            Text("\(item.1)")
-                                .font(.system(size: 12, weight: .semibold)) // Bold count
-                                .foregroundStyle(theme.textSecondary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(theme.bgTertiary)
-                                .cornerRadius(4)
-                        }
-                        .padding(8)
-                        .background(idx % 2 == 0 ? theme.bgTertiary.opacity(0.5) : .clear)
-                        .cornerRadius(6)
-                    }
-                }
+    private var pageHeader: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("MESSAGES").font(.system(size: 10, weight: .bold)).tracking(1.5).foregroundStyle(theme.accent)
+            Text("Message archive").font(.system(size: 30, weight: .bold)).foregroundStyle(theme.textPrimary)
+            Text("A structured look at message volume, destinations, vocabulary, and shared links.")
+                .font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+        }
+        .padding(.bottom, 22)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+
+    private var totals: some View {
+        HStack(alignment: .top, spacing: 34) {
+            PlainMetric(value: viewModel.formatNumber(viewModel.stats.messageCount), label: "all messages", tint: theme.accent)
+            PlainMetric(value: viewModel.formatNumber(viewModel.stats.dmMessages), label: "direct messages", tint: theme.mint)
+            PlainMetric(value: viewModel.formatNumber(viewModel.stats.serverMessages), label: "server messages", tint: theme.peach)
+            PlainMetric(value: viewModel.formatNumber(viewModel.stats.characterCount), label: "characters", tint: theme.rose)
+            PlainMetric(value: viewModel.formatNumber(viewModel.stats.filesUploaded), label: "attachments", tint: theme.sky)
+        }
+    }
+
+    private var destinations: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            heading("Most active destinations")
+            HStack(alignment: .top, spacing: 52) {
+                entityTable("DIRECT MESSAGES", viewModel.stats.topDMs)
+                entityTable("SERVERS", viewModel.stats.topServers)
+                entityTable("CHANNELS", viewModel.stats.topChannels)
             }
         }
-        .padding(16)
-        .background(theme.bgSecondary)
-        .cornerRadius(16) // Rounder corners
-        .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private var analysis: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            heading("Content analysis")
+            HStack(alignment: .top, spacing: 52) {
+                frequencyTable("FREQUENT WORDS", viewModel.stats.topWords)
+                frequencyTable("SHARED LINKS", viewModel.stats.topLinks)
+                frequencyTable("DISCORD INVITES", viewModel.stats.topDiscordLinks)
+            }
+        }
+    }
+
+    private func heading(_ text: String) -> some View {
+        Text(text).font(.system(size: 20, weight: .bold)).foregroundStyle(theme.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 12)
+            .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+
+    private func entityTable(_ title: String, _ items: [DetailedStats]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title).font(.system(size: 9, weight: .bold)).tracking(1.2).foregroundStyle(theme.textSecondary).padding(.bottom, 7)
+            ForEach(Array(items.prefix(10).enumerated()), id: \.element.id) { index, item in
+                NavigationLikeRow(rank: index + 1, title: item.name, value: viewModel.formatNumber(item.messageCount))
+                Divider()
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func frequencyTable(_ title: String, _ items: [(word: String, count: Int)]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title).font(.system(size: 9, weight: .bold)).tracking(1.2).foregroundStyle(theme.textSecondary).padding(.bottom, 7)
+            ForEach(Array(items.prefix(10).enumerated()), id: \.offset) { index, item in
+                NavigationLikeRow(rank: index + 1, title: item.word, value: viewModel.formatNumber(item.count))
+                Divider()
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
-struct MsgStatCard: View {
-    @EnvironmentObject var theme: ThemeManager
+struct NavigationLikeRow: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let rank: Int
     let title: String
     let value: String
-    let icon: String // Added icon
-    let color: Color
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundStyle(color)
-                    .padding(8)
-                    .background(color.opacity(0.15))
-                    .clipShape(Circle())
-                Spacer()
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(value)
-                    .font(.system(size: 24, weight: .bold)) // Slightly smaller but bolder
-                    .foregroundStyle(theme.textPrimary)
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(theme.textSecondary)
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.bgSecondary)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(color.opacity(0.1), lineWidth: 1)
-        )
-    }
-}
-
-struct DetailedStatsRow: View {
-    @EnvironmentObject var theme: ThemeManager
-    let rank: Int
-    let stats: DetailedStats
-    @State private var showDetails = false
-    
-    var body: some View {
-        HStack {
-            Text("\(rank)")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(theme.accent)
-                .frame(width: 24)
-            
-            Text(stats.name)
-                .font(.system(size: 13))
-                .lineLimit(1)
-                .foregroundStyle(theme.textPrimary)
-            
+        HStack(spacing: 9) {
+            Text(String(format: "%02d", rank)).foregroundStyle(theme.accent).frame(width: 24, alignment: .leading)
+            Text(title).lineLimit(1).foregroundStyle(theme.textPrimary)
             Spacer()
-            
-            Text("\(stats.messageCount) msgs")
-                .font(.system(size: 12))
-                .foregroundStyle(theme.textSecondary)
-            
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(theme.textSecondary)
+            Text(value).foregroundStyle(theme.textSecondary)
         }
-        .padding(12)
-        .background(rank % 2 == 0 ? theme.bgTertiary : Color.clear)
-        .cornerRadius(8)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            showDetails = true
-        }
-        .sheet(isPresented: $showDetails) {
-            DetailedStatsView(stats: stats, rank: rank)
-        }
+        .font(.system(size: 12))
+        .padding(.vertical, 9)
     }
-}
-
-#Preview {
-    MessagesView()
-        .environmentObject(PackageViewModel())
 }

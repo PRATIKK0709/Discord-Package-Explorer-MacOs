@@ -25,9 +25,8 @@ struct BotsGridView: View {
                 }
             }
         }
-        .padding(16)
-        .background(theme.bgSecondary)
-        .cornerRadius(12)
+        .padding(.vertical, 16)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
     }
 }
 

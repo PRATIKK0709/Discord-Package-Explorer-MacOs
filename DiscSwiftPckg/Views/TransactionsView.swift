@@ -21,8 +21,7 @@ struct TransactionsView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(theme.accent)
                 .frame(width: 64, height: 64)
-                .background(theme.bgTertiary)
-                .cornerRadius(12)
+                .overlay(Rectangle().stroke(theme.border))
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Total Spent on Discord")
@@ -37,10 +36,8 @@ struct TransactionsView: View {
             Spacer()
         }
         .padding(24)
-        .background(theme.bgSecondary)
-        .cornerRadius(16)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
     }
 }
 
 // Removed TransactionRow and StatusBadge as they are no longer used for the summary logic
-

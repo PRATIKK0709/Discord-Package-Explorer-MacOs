@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct StatCardView: View {
+    @EnvironmentObject var theme: ThemeManager
     let title: String
     let value: String
     let icon: String
@@ -11,9 +12,9 @@ struct StatCardView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 ZStack {
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 40, height: 40)
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(color.opacity(0.12))
+                        .frame(width: 42, height: 42)
                     Image(systemName: icon)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(color)
@@ -24,33 +25,33 @@ struct StatCardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(value)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(theme.textPrimary)
                 
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(theme.textPrimary)
                 
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.textSecondary)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .stroke(
                     LinearGradient(
-                        colors: [color.opacity(0.3), color.opacity(0.1)],
+                        colors: [color.opacity(0.22), theme.border.opacity(0.7)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: color.opacity(0.1), radius: 10, x: 0, y: 4)
+        .shadow(color: Color(hex: 0x35415D).opacity(0.06), radius: 12, x: 0, y: 5)
     }
 }
 
@@ -73,4 +74,5 @@ struct StatCardView: View {
     }
     .padding()
     .frame(width: 500)
+    .environmentObject(ThemeManager())
 }

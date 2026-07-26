@@ -1,0 +1,190 @@
+{
+  "generated_at" : "2026-07-20T12:00:00.000Z",
+  "metadata" : {
+    "source" : "DSP fictional showcase data"
+  },
+  "record_count" : 36,
+  "records" : [
+    {
+      "consumed" : false,
+      "sku_id" : "sku-1",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-2",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-3",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-4",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-5",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-6",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-7",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-8",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-9",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-10",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-11",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-12",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-13",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-14",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-15",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-16",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-17",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-18",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-19",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-20",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-21",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-22",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-23",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-24",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-25",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-26",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-27",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-28",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-29",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-30",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-31",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-32",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-33",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-34",
+      "type" : 1
+    },
+    {
+      "consumed" : false,
+      "sku_id" : "sku-35",
+      "type" : 1
+    },
+    {
+      "consumed" : true,
+      "sku_id" : "sku-36",
+      "type" : 1
+    }
+  ],
+  "section" : "entitlements"
+}

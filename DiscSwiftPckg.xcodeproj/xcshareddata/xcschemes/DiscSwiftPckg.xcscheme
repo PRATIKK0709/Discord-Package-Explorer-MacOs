@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "6C9CC8252F1F8A5000E96415"
-               BuildableName = "DiscSwiftPckg.app"
+               BuildableName = "DSP.app"
                BlueprintName = "DiscSwiftPckg"
                ReferencedContainer = "container:DiscSwiftPckg.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "6C9CC8252F1F8A5000E96415"
-            BuildableName = "DiscSwiftPckg.app"
+            BuildableName = "DSP.app"
             BlueprintName = "DiscSwiftPckg"
             ReferencedContainer = "container:DiscSwiftPckg.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "6C9CC8252F1F8A5000E96415"
-            BuildableName = "DiscSwiftPckg.app"
+            BuildableName = "DSP.app"
             BlueprintName = "DiscSwiftPckg"
             ReferencedContainer = "container:DiscSwiftPckg.xcodeproj">
          </BuildableReference>

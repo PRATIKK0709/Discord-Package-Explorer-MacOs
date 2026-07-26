@@ -12,6 +12,18 @@ struct DiscordStats {
     var bots: [DiscordBot] = []
     var payments: [DiscordPayment] = []
     var tickets: [DiscordTicket] = []
+
+    // Package-level account and export insights
+    var sessionCount: Int = 0
+    var guildSettingCount: Int = 0
+    var applicationActivityCount: Int = 0
+    var currentOrbsBalance: Int = 0
+    var questCount: Int = 0
+    var completedQuestCount: Int = 0
+    var claimedQuestCount: Int = 0
+    var claimedOrbs: Int = 0
+    var entitlementCount: Int = 0
+    var paymentSourceCount: Int = 0
     
     
     // Message stats

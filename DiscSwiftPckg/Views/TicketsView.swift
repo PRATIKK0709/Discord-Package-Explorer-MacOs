@@ -1,204 +1,171 @@
 import SwiftUI
 
 struct TicketsView: View {
-    @EnvironmentObject var theme: ThemeManager
+    @EnvironmentObject private var theme: ThemeManager
     let tickets: [DiscordTicket]
-    @State private var selectedTicket: DiscordTicket?
-    
+    @State private var selectedID: String?
+
+    private var selected: DiscordTicket? {
+        tickets.first { $0.id == selectedID } ?? tickets.first
+    }
+
     var body: some View {
         if tickets.isEmpty {
-            // Empty State
-            VStack(spacing: 16) {
-                Image(systemName: "ticket")
-                    .font(.system(size: 48))
-                    .foregroundStyle(theme.textSecondary)
-                Text("No Support Tickets")
-                    .font(.system(size: 18, weight: .semibold))
+            VStack(alignment: .leading, spacing: 10) {
+                Text("SUPPORT").pageEyebrow()
+                Text("No support history")
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
-                Text("You don't have any support ticket data in this package.")
-                    .font(.system(size: 14))
+                Text("This export does not contain any Discord support tickets.")
+                    .font(.system(size: 13))
                     .foregroundStyle(theme.textSecondary)
-                    .multilineTextAlignment(.center)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(42)
             .background(theme.bgPrimary)
         } else {
-HStack(spacing: 0) {
-            // Sidebar List
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Support Tickets")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-                    .padding(16)
-                
-                Divider().background(theme.bgTertiary)
-                
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(tickets) { ticket in
-                            TicketRow(ticket: ticket, isSelected: selectedTicket?.id == ticket.id)
-                                .onTapGesture {
-                                    selectedTicket = ticket
-                                }
-                        }
-                    }
+            HStack(spacing: 0) {
+                ticketIndex
+                    .frame(width: 290)
+                    .background(Color.white)
+                    .overlay(Rectangle().fill(theme.border).frame(width: 1), alignment: .trailing)
+                if let selected {
+                    TicketTranscript(ticket: selected)
                 }
             }
-            .frame(width: 250)
-            .background(theme.bgSecondary)
-            
-            Divider().background(theme.bgTertiary)
-            
-            // Detail View
-            ZStack {
-                theme.bgPrimary.ignoresSafeArea()
-                
-                if let ticket = selectedTicket {
-                    TicketDetailView(ticket: ticket)
-                } else {
-                    VStack(spacing: 12) {
-                        Image(systemName: "envelope.open")
-                            .font(.system(size: 48))
-                            .foregroundStyle(theme.textSecondary)
-                        Text("Select a ticket to view conversation")
-                            .font(.system(size: 14))
-                            .foregroundStyle(theme.textSecondary)
-                    }
-                }
-            }
-        }
-        .onAppear {
-            if selectedTicket == nil {
-                selectedTicket = tickets.first
-            }
-        }
+            .onAppear { selectedID = selectedID ?? tickets.first?.id }
         }
     }
-}
 
-struct TicketRow: View {
-    @EnvironmentObject var theme: ThemeManager
-    let ticket: DiscordTicket
-    let isSelected: Bool
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(ticket.subject ?? "No Subject")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(isSelected ? theme.textPrimary : theme.textPrimary.opacity(0.8))
-                .lineLimit(1)
-            
-            HStack {
-                Text(ticket.status.capitalized)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(statusColor(ticket.status))
-                
-                Spacer()
-                
-                Text(ticket.formattedDate)
-                    .font(.system(size: 10))
+    private var ticketIndex: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("SUPPORT").pageEyebrow()
+                Text("Ticket history")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(theme.textPrimary)
+                Text(ticketCountText)
+                    .font(.system(size: 11))
                     .foregroundStyle(theme.textSecondary)
             }
-        }
-        .padding(12)
-        .background(isSelected ? theme.bgTertiary : Color.clear)
-        .contentShape(Rectangle())
-    }
-    
-    func statusColor(_ status: String) -> Color {
-        switch status.lowercased() {
-        case "open": return .green
-        case "closed": return .gray
-        default: return .orange
-        }
-    }
-}
+            .padding(26)
 
-struct TicketDetailView: View {
-    @EnvironmentObject var theme: ThemeManager
-    let ticket: DiscordTicket
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text(ticket.subject ?? "Ticket #\(ticket.id)")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-                
-                HStack(spacing: 12) {
-                    Label(ticket.status.capitalized, systemImage: "circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.textSecondary)
-                    
-                    Label("\(ticket.comments.count) comments", systemImage: "bubble.left.and.bubble.right")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.textSecondary)
-                }
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.bgSecondary)
-            
-            Divider().background(theme.bgTertiary)
-            
-            // Messages
+            Divider()
+
             ScrollView {
-                LazyVStack(spacing: 24) {
-                    ForEach(ticket.sortedMessages) { comment in
-                        TicketCommentRow(comment: comment)
+                LazyVStack(spacing: 0) {
+                    ForEach(tickets) { ticket in
+                        Button {
+                            selectedID = ticket.id
+                        } label: {
+                            HStack(spacing: 12) {
+                                Rectangle()
+                                    .fill(selected?.id == ticket.id ? theme.accent : Color.clear)
+                                    .frame(width: 2, height: 42)
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(ticket.subject ?? "Ticket #\(ticket.ticketId)")
+                                        .font(.system(size: 12, weight: selected?.id == ticket.id ? .semibold : .regular))
+                                        .foregroundStyle(theme.textPrimary)
+                                        .lineLimit(1)
+                                    HStack {
+                                        Text(ticket.status.uppercased())
+                                            .font(.system(size: 8, weight: .bold))
+                                            .tracking(0.8)
+                                        Spacer()
+                                        Text(ticket.formattedDate)
+                                            .font(.system(size: 9))
+                                    }
+                                    .foregroundStyle(theme.textSecondary)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Divider().padding(.leading, 34)
                     }
                 }
-                .padding(24)
             }
         }
+    }
+
+    private var ticketCountText: String {
+        tickets.count == 1 ? "1 ticket" : "\(tickets.count.formatted()) tickets"
     }
 }
 
-struct TicketCommentRow: View {
-    @EnvironmentObject var theme: ThemeManager
-    let comment: TicketComment
-    
+struct TicketTranscript: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let ticket: DiscordTicket
+
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            // Avatar
-            ZStack {
-                Circle().fill(theme.bgTertiary)
-                    .frame(width: 40, height: 40)
-                Text(String(comment.author.prefix(1)).uppercased())
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-            }
-            
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .bottom, spacing: 8) {
-                    Text(comment.author)
-                        .font(.system(size: 14, weight: .bold))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("TICKET #\(ticket.ticketId)").pageEyebrow()
+                    Text(ticket.subject ?? "Support conversation")
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(theme.textPrimary)
-                    
-                    Text(formatDate(comment.createdAt))
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textSecondary)
+                    HStack(spacing: 18) {
+                        Text(ticket.status.capitalized)
+                        Text(ticket.formattedDate)
+                        Text(commentCountText)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
                 }
-                
-                Text(comment.comment)
-                    .font(.system(size: 14))
-                    .foregroundStyle(theme.textPrimary.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 24)
+                .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+
+                ForEach(Array(ticket.sortedMessages.enumerated()), id: \.element.id) { index, comment in
+                    HStack(alignment: .top, spacing: 18) {
+                        Text(String(format: "%02d", index + 1))
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(theme.textSecondary)
+                            .frame(width: 24, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(comment.author)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(theme.textPrimary)
+                                Spacer()
+                                Text(formatDate(comment.createdAt))
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(theme.textSecondary)
+                            }
+                            Text(comment.comment)
+                                .font(.system(size: 13))
+                                .foregroundStyle(theme.textPrimary.opacity(0.88))
+                                .lineSpacing(4)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.vertical, 20)
+                    .overlay(Rectangle().fill(theme.border.opacity(0.75)).frame(height: 1), alignment: .bottom)
+                }
             }
-            Spacer()
+            .padding(42)
         }
+        .background(theme.bgPrimary)
     }
-    
-    func formatDate(_ ts: String) -> String {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = isoFormatter.date(from: ts) {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .short
-            formatter.timeStyle = .short
-            return formatter.string(from: date)
-        }
-        return ts
+
+    private func formatDate(_ timestamp: String) -> String {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = iso.date(from: timestamp) else { return timestamp }
+        return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private var commentCountText: String {
+        ticket.comments.count == 1 ? "1 comment" : "\(ticket.comments.count.formatted()) comments"
+    }
+}
+
+private extension Text {
+    func pageEyebrow() -> some View {
+        self.font(.system(size: 9, weight: .bold))
+            .tracking(1.4)
+            .foregroundStyle(Color(hex: 0x6D8EF7))
     }
 }

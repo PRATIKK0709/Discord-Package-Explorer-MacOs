@@ -1,0 +1,11 @@
+{
+  "id" : "9002",
+  "name" : "Noor Patel",
+  "recipients" : [
+    {
+      "global_name" : "Noor Patel",
+      "username" : "noor_patel"
+    }
+  ],
+  "type" : 1
+}

@@ -1,0 +1,8 @@
+{
+  "bot_token" : null,
+  "description" : "Manages critique requests for a small creative community.",
+  "icon" : null,
+  "id" : "7006",
+  "name" : "Studio Queue",
+  "public_key" : null
+}

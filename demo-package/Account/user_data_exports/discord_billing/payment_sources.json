@@ -1,0 +1,16 @@
+{
+  "generated_at" : "2026-07-20T12:00:00.000Z",
+  "metadata" : {
+    "source" : "DSP fictional showcase data"
+  },
+  "record_count" : 1,
+  "records" : [
+    {
+      "country" : "US",
+      "deleted_at" : null,
+      "id" : "demo-source",
+      "type" : 1
+    }
+  ],
+  "section" : "payment_sources"
+}

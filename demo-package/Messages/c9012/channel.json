@@ -1,0 +1,11 @@
+{
+  "id" : "9012",
+  "name" : "Launch Team",
+  "recipients" : [
+    {
+      "global_name" : "Launch Team",
+      "username" : "launch_team"
+    }
+  ],
+  "type" : 3
+}

@@ -1,0 +1,11 @@
+{
+  "id" : "9011",
+  "name" : "Photography Friends",
+  "recipients" : [
+    {
+      "global_name" : "Photography Friends",
+      "username" : "photography_friends"
+    }
+  ],
+  "type" : 3
+}

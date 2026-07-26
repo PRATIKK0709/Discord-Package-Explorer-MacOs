@@ -1,0 +1,11 @@
+{
+  "id" : "9003",
+  "name" : "Sam Wilson",
+  "recipients" : [
+    {
+      "global_name" : "Sam Wilson",
+      "username" : "sam_wilson"
+    }
+  ],
+  "type" : 1
+}

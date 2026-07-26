@@ -1,0 +1,15 @@
+{
+  "age_group" : "adult",
+  "genre_names_l90" : [
+    "Creative",
+    "Cozy",
+    "Strategy"
+  ],
+  "primary_platform_l30" : "desktop",
+  "settings_locale" : "en-US",
+  "theme_names_l90" : [
+    "Art",
+    "Design",
+    "Community"
+  ]
+}

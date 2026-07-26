@@ -1,846 +1,604 @@
 import SwiftUI
 
 struct DashboardView: View {
-    @EnvironmentObject var viewModel: PackageViewModel
-    @EnvironmentObject var theme: ThemeManager
-    
+    @EnvironmentObject private var viewModel: PackageViewModel
+    @EnvironmentObject private var theme: ThemeManager
+
+    private let metricColumns = Array(repeating: GridItem(.flexible(), spacing: 28), count: 4)
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header with user
-                headerSection
-                
-                // Avatar History
-                if !viewModel.stats.recentAvatars.isEmpty {
-                    avatarHistorySection
-                }
-                
-                // Main stats cards
-                statsGrid
-                
-                
-                // Tickets section removed - available in dedicated Tickets tab
-
-                
-                // Top custom emojis with images
-                topEmojisSection
-                
-                // Activity charts
-                chartsSection
-                
-                // Top lists
-                topListsSection
-                
-                // My Bots
-                if !viewModel.stats.bots.isEmpty {
-                    BotsGridView(bots: viewModel.stats.bots)
-                }
-                
-                // Transactions
-                if !viewModel.stats.payments.isEmpty {
-                    TransactionsView(payments: viewModel.stats.payments)
-                }
-                
-                Spacer(minLength: 20)
+            VStack(alignment: .leading, spacing: 42) {
+                identity
+                headlineMetrics
+                communication
+                activity
+                accountArchive
+                vocabulary
+                applications
             }
-            .padding(32)
+            .padding(.horizontal, 42)
+            .padding(.vertical, 36)
         }
         .background(theme.bgPrimary)
     }
-    
-    // MARK: - Header
-    
-    private var headerSection: some View {
-        HStack(spacing: 16) {
-            // Avatar - load from history first, then CDN
-            if let recentAvatar = viewModel.stats.recentAvatars.first {
-                AsyncImage(url: recentAvatar) { image in
-                     image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .clipShape(Circle())
-                } placeholder: {
-                    avatarPlaceholder
-                }
-            } else if let avatarURL = viewModel.stats.avatarURL {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 56, height: 56)
-                            .clipShape(Circle())
-                    case .failure(_):
-                        avatarPlaceholder
-                    case .empty:
-                        avatarPlaceholder
-                    @unknown default:
-                        avatarPlaceholder
-                    }
-                }
-            } else {
-                avatarPlaceholder
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(viewModel.stats.user?.globalName ?? viewModel.stats.user?.username ?? "Discord User")
-                    .font(.system(size: 24, weight: .bold))
+
+    private var identity: some View {
+        HStack(alignment: .center, spacing: 18) {
+            avatar.frame(width: 68, height: 68).clipShape(Circle())
+            VStack(alignment: .leading, spacing: 5) {
+                Text("PACKAGE OVERVIEW")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundStyle(theme.accent)
+                Text(viewModel.stats.user?.globalName ?? viewModel.stats.user?.username ?? "Discord account")
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
-                
-                HStack(spacing: 12) {
+                HStack(spacing: 18) {
                     if let user = viewModel.stats.user {
-                        Label("@\(user.username)", systemImage: "at")
-                        Label("\(user.accountAgeDays) days", systemImage: "calendar")
-                    }
-                    if viewModel.stats.friendCount > 0 {
-                        Label("\(viewModel.stats.friendCount) friends", systemImage: "person.2")
+                        Text("@\(user.username)")
+                        Text(accountAgeText(user.accountAgeDays))
+                        Text(user.nitroStatus == "None" ? "No active Nitro" : user.nitroStatus)
                     }
                 }
                 .font(.system(size: 12))
                 .foregroundStyle(theme.textSecondary)
             }
-            
             Spacer()
+            VStack(alignment: .trailing, spacing: 6) {
+                Label("Processed locally", systemImage: "lock.fill")
+                    .foregroundStyle(Color(hex: 0x4D9B78))
+                Text(viewModel.packageRoot?.lastPathComponent ?? "Discord export")
+                    .foregroundStyle(theme.textSecondary)
+            }
+            .font(.system(size: 11, weight: .semibold))
         }
-        .padding(20)
-        .background(theme.bgSecondary)
-        .cornerRadius(12)
+        .padding(.bottom, 26)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
     }
-    
-    private var avatarPlaceholder: some View {
+
+    private var avatar: some View {
+        Group {
+            if let url = viewModel.stats.recentAvatars.first {
+                AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { avatarFallback }
+            } else if let url = viewModel.stats.avatarURL {
+                AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { avatarFallback }
+            } else {
+                avatarFallback
+            }
+        }
+    }
+
+    private var avatarFallback: some View {
         ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [theme.accent, theme.accent.opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 56, height: 56)
+            theme.lavender
             Text(String(viewModel.stats.user?.username.prefix(1) ?? "D").uppercased())
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
-        }
-    }
-    
-    private func connectionIcon(_ type: String) -> some View {
-        let icon: String
-        switch type.lowercased() {
-        case "spotify": icon = "music.note"
-        case "steam": icon = "gamecontroller"
-        case "github": icon = "chevron.left.forwardslash.chevron.right"
-        case "twitter", "x": icon = "bird"
-        case "youtube": icon = "play.rectangle"
-        case "playstation": icon = "logo.playstation"
-        case "xbox": icon = "logo.xbox"
-        default: icon = "link"
-        }
-        return Image(systemName: icon)
-            .font(.system(size: 14))
-            .foregroundStyle(theme.textSecondary)
-            .frame(width: 28, height: 28)
-            .background(theme.bgTertiary)
-            .cornerRadius(6)
-    }
-    
-    // MARK: - Stats Grid
-    
-    private var statsGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 160), spacing: 16)
-        ], spacing: 16) {
-            StatCard(title: "Messages", value: viewModel.formatNumber(viewModel.stats.messageCount), subtitle: String(format: "%.1f/day", viewModel.stats.messagesPerDay), icon: "bubble.left.fill", color: .blue)
-            StatCard(title: "Words", value: viewModel.formatNumber(viewModel.stats.wordCount), subtitle: "typed", icon: "text.cursor", color: .purple)
-            StatCard(title: "Characters", value: viewModel.formatNumber(viewModel.stats.characterCount), subtitle: "typed", icon: "character.cursor.ibeam", color: .pink)
-            StatCard(title: "Servers", value: "\(viewModel.stats.serverCount)", subtitle: "joined", icon: "server.rack", color: .orange)
-            StatCard(title: "DMs", value: "\(viewModel.stats.dmConversations)", subtitle: "conversations", icon: "person.2.fill", color: .indigo)
-            StatCard(title: "Files", value: viewModel.formatNumber(viewModel.stats.filesUploaded), subtitle: "uploaded", icon: "doc.fill", color: .green)
-            StatCard(title: "Emotes", value: viewModel.formatNumber(viewModel.stats.emoteCount), subtitle: "used", icon: "face.smiling.fill", color: .yellow)
-            StatCard(title: "Mentions", value: viewModel.formatNumber(viewModel.stats.mentionCount), subtitle: "@mentions", icon: "at", color: .cyan)
-        }
-    }
-    
-    // MARK: - Avatar History
-    
-    private var avatarHistorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "photo.stack")
-                    .foregroundStyle(theme.accent)
-                Text("Avatar History")
-                    .font(.system(size: 16, weight: .semibold))
-                Spacer()
-                Text("\(viewModel.stats.recentAvatars.count) found")
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.textSecondary)
-            }
-            
-            if viewModel.stats.recentAvatars.isEmpty {
-                Text("No historical avatars found")
-                    .font(.system(size: 13))
-                    .foregroundStyle(theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(viewModel.stats.recentAvatars, id: \.self) { url in
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            } placeholder: {
-                                Color.gray.opacity(0.2)
-                            }
-                            .frame(width: 80, height: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.bgTertiary, lineWidth: 1))
-                        }
-                    }
-                }
-            }
-        }
-        .padding(20)
-        .background(theme.bgSecondary)
-        .cornerRadius(12)
-    }
-    
-    // MARK: - Top Emojis with Images
-    
-    private var topEmojisSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "face.smiling.inverse")
-                    .foregroundStyle(theme.accent)
-                Text("Your Top Custom Emojis")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary)
-                Spacer()
-            }
-            
-            if viewModel.stats.topCustomEmojis.isEmpty {
-                Text("No custom emoji data found")
-                    .font(.system(size: 13))
-                    .foregroundStyle(theme.textSecondary)
-            } else {
-                // Grid of emoji images - Right aligned, bigger
-                HStack {
-                    Spacer()
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(64), spacing: 12), count: 10), spacing: 16) {
-                        ForEach(viewModel.stats.topCustomEmojis.prefix(30), id: \.id) { emoji in
-                            EmojiImageView(emoji: emoji)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(20)
-        .background(theme.bgSecondary)
-        .cornerRadius(12)
-    }
-    
-    // MARK: - Charts
-    
-    private var chartsSection: some View {
-        HStack(spacing: 16) {
-            // Hourly chart
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Activity by Hour")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(theme.textPrimary)
-                    Spacer()
-                    Text("Peak: \(viewModel.stats.mostActiveHour):00")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textSecondary)
-                }
-                
-                HourlyChartView(data: viewModel.stats.messagesByHour)
-                    .frame(height: 80)
-            }
-            .padding(16)
-            .background(theme.bgSecondary)
-            .cornerRadius(12)
-            
-            // Daily chart
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Activity by Day")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(theme.textPrimary)
-                    Spacer()
-                    Text("Peak: \(viewModel.stats.mostActiveDay)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textSecondary)
-                }
-                
-                DailyChartView(data: viewModel.stats.messagesByDay)
-                    .frame(height: 80)
-            }
-            .padding(16)
-            .background(theme.bgSecondary)
-            .cornerRadius(12)
-        }
-    }
-    
-    // MARK: - Top Lists
-    
-    private var topListsSection: some View {
-        VStack(spacing: 24) {
-            // Global Words Section (Moved here)
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Global Favorite Words", systemImage: "text.quote")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary)
-                
-                FlowLayout(spacing: 8) {
-                    ForEach(viewModel.stats.topWords.prefix(25), id: \.word) { item in
-                        HStack(spacing: 4) {
-                            Text(item.word)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(theme.textPrimary)
-                            Text("\(item.count)")
-                                .font(.system(size: 10))
-                                .foregroundStyle(theme.textSecondary)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(theme.bgSecondary)
-                        .cornerRadius(6)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(theme.bgTertiary, lineWidth: 1)
-                        )
-                    }
-                }
-            }
-            .padding(20)
-            .background(theme.bgSecondary.opacity(0.5))
-            .cornerRadius(12)
-            
-            // Rich Top Lists
-            HStack(alignment: .top, spacing: 16) {
-                // Top DMs (Rich)
-                RichTopListCard(title: "Top DMs", icon: "person.2", items: viewModel.stats.topDMs)
-                
-                // Top Servers (Rich)
-                RichTopListCard(title: "Top Servers", icon: "server.rack", items: viewModel.stats.topServers)
-            }
-        }
-    }
-}
-
-// MARK: - Emoji Image View
-
-struct EmojiImageView: View {
-    @EnvironmentObject var theme: ThemeManager
-    let emoji: (name: String, id: String, count: Int, imageURL: String)
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Group {
-                if let url = URL(string: emoji.imageURL), url.pathExtension.lowercased() == "gif" {
-                    GifImageView(url: url)
-                } else {
-                    AsyncImage(url: URL(string: emoji.imageURL)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFit()
-                        case .failure(_):
-                            Image(systemName: "face.smiling")
-                                .font(.system(size: 32))
-                                .foregroundStyle(theme.textSecondary)
-                        case .empty:
-                            ProgressView()
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                }
-            }
-            .frame(width: 48, height: 48)
-            .background(theme.bgTertiary)
-            .cornerRadius(8)
-            
-            Text(":\(emoji.name):")
-                .font(.system(size: 10))
-                .foregroundStyle(theme.textSecondary)
-                .lineLimit(1)
-                .frame(width: 64)
-        }
-        .frame(width: 64, height: 72)
-        .help(":\(emoji.name): - \(emoji.count) uses")
-    }
-}
-
-// MARK: - Stat Card
-
-struct StatCard: View {
-    @EnvironmentObject var theme: ThemeManager
-    let title: String
-    let value: String
-    let subtitle: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundStyle(color)
-                Spacer()
-            }
-            
-            Text(value)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(theme.textPrimary)
-            
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(theme.textPrimary)
-            
-            Text(subtitle)
-                .font(.system(size: 10))
-                .foregroundStyle(theme.textSecondary)
+                .foregroundStyle(theme.accent)
         }
-        .padding(16)
-        .background(theme.bgSecondary)
-        .cornerRadius(12)
     }
-}
 
-// MARK: - Charts
-
-// MARK: - Charts
-
-struct HourlyChartView: View {
-    @EnvironmentObject var theme: ThemeManager
-    let data: [Int]
-    
-    // Normalize data for the chart
-    var normalizedData: [Double] {
-        let maxVal = Double(data.max() ?? 1)
-        return data.map { maxVal > 0 ? Double($0) / maxVal : 0 }
-    }
-    
-    var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            let points = dataPoints(width: width, height: height)
-            
-            ZStack {
-                // Background grid lines
-                VStack {
-                    Divider()
-                    Spacer()
-                    Divider()
-                    Spacer()
-                    Divider()
-                }
-                
-                // Fill
-                SmoothShape(points: points, isClosed: true)
-                    .fill(
-                        LinearGradient(
-                            colors: [theme.accent.opacity(0.4), theme.accent.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                
-                // Stroke
-                SmoothShape(points: points, isClosed: false)
-                    .stroke(theme.accent, lineWidth: 2)
-                
-                // Labels (simplistic)
-                VStack {
-                    Spacer()
-                    HStack {
-                        Text("0")
-                        Spacer()
-                        Text("6")
-                        Spacer()
-                        Text("12")
-                        Spacer()
-                        Text("18")
-                        Spacer()
-                        Text("23")
-                    }
-                    .font(.system(size: 9))
-                    .foregroundStyle(theme.textSecondary)
-                }
+    private var headlineMetrics: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            sectionTitle("At a glance", subtitle: "The scale of your archive")
+            LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 26) {
+                PlainMetric(value: viewModel.formatNumber(viewModel.stats.messageCount), label: "messages", tint: theme.accent)
+                PlainMetric(value: viewModel.formatNumber(viewModel.stats.wordCount), label: "words written", tint: Color(hex: 0x8B7CF6))
+                PlainMetric(value: "\(viewModel.stats.serverCount)", label: "servers", tint: Color(hex: 0xE8A36B))
+                PlainMetric(value: "\(viewModel.stats.dmConversations)", label: "direct conversations", tint: Color(hex: 0x63A98A))
+                PlainMetric(value: viewModel.formatNumber(viewModel.stats.filesUploaded), label: "files uploaded", tint: Color(hex: 0xE383A5))
+                PlainMetric(value: viewModel.formatNumber(viewModel.stats.mentionCount), label: "mentions", tint: Color(hex: 0x67A8D8))
+                PlainMetric(value: viewModel.formatNumber(viewModel.stats.emoteCount), label: "custom emoji uses", tint: Color(hex: 0xD5A942))
+                PlainMetric(value: String(format: "%.1f", viewModel.stats.messagesPerDay), label: "messages per day", tint: Color(hex: 0x8C9BAA))
             }
+            profilePictureHistory
         }
     }
-    
-    private func dataPoints(width: CGFloat, height: CGFloat) -> [CGPoint] {
-        let step = width / CGFloat(max(data.count - 1, 1))
-        return normalizedData.enumerated().map { index, value in
-            CGPoint(x: CGFloat(index) * step, y: height * (1 - value))
-        }
-    }
-}
 
-struct DailyChartView: View {
-    @EnvironmentObject var theme: ThemeManager
-    let data: [Int]
-    let days = ["M", "T", "W", "T", "F", "S", "S"]
-    
-    var normalizedData: [Double] {
-        let maxVal = Double(data.max() ?? 1)
-        return data.map { maxVal > 0 ? Double($0) / maxVal : 0 }
-    }
-    
-    var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            let points = dataPoints(width: width, height: height)
-            
-            ZStack {
-                // Background grid
-                VStack {
-                    Divider()
-                    Spacer()
-                    Divider()
-                    Spacer()
-                    Divider()
-                }
-                
-                // Fill
-                SmoothShape(points: points, isClosed: true)
-                    .fill(
-                        LinearGradient(
-                            colors: [theme.accent.opacity(0.4), theme.accent.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                
-                // Stroke
-                SmoothShape(points: points, isClosed: false)
-                    .stroke(theme.accent, lineWidth: 2)
-                
-                // Labels
-                VStack {
-                    Spacer()
-                    HStack {
-                        ForEach(0..<days.count, id: \.self) { i in
-                            Text(days[i])
+    @ViewBuilder
+    private var profilePictureHistory: some View {
+        if !viewModel.stats.recentAvatars.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("PROFILE PICTURE HISTORY").sectionLabel()
+                HStack(spacing: 14) {
+                    ForEach(Array(viewModel.stats.recentAvatars.enumerated()), id: \.element) { index, url in
+                        VStack(spacing: 7) {
+                            AsyncImage(url: url) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                theme.bgTertiary
+                            }
+                            .frame(width: 58, height: 58)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle().stroke(
+                                    index == 0 ? theme.accent.opacity(0.7) : theme.border,
+                                    lineWidth: index == 0 ? 2 : 1
+                                )
+                            )
+                            Text(index == 0 ? "Current" : "Previous")
                                 .font(.system(size: 9))
                                 .foregroundStyle(theme.textSecondary)
-                                .frame(maxWidth: .infinity)
                         }
+                    }
+                    Spacer()
+                }
+            }
+            .padding(.top, 6)
+        }
+    }
+
+    private var communication: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            sectionTitle("Conversation destinations", subtitle: "Your most active communities and private conversations")
+            HStack(alignment: .top, spacing: 54) {
+                rankedList("Top servers", items: viewModel.stats.topServers.map { ($0.name, $0.messageCount) })
+                rankedList("Top direct messages", items: viewModel.stats.topDMs.map { ($0.name, $0.messageCount) })
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("ARCHIVE BREAKDOWN").sectionLabel()
+                    DataLine("Server messages", viewModel.formatNumber(viewModel.stats.serverMessages))
+                    DataLine("Direct messages", viewModel.formatNumber(viewModel.stats.dmMessages))
+                    DataLine("Group conversations", "\(viewModel.stats.groupDMCount)")
+                    DataLine("Server channels", "\(viewModel.stats.serverChannelCount)")
+                    DataLine("Friends", "\(viewModel.stats.friendCount)")
+                    DataLine("Blocked users", "\(viewModel.stats.blockedCount)")
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var activity: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            sectionTitle("Activity patterns", subtitle: "When you sent the most messages")
+            ActivityAreaChart(
+                values: viewModel.stats.messagesByHour,
+                peakHour: viewModel.stats.mostActiveHour
+            )
+            .frame(height: 220)
+
+            HStack(spacing: 0) {
+                ActivitySummary(
+                    eyebrow: "PEAK HOUR",
+                    value: String(format: "%02d:00", viewModel.stats.mostActiveHour),
+                    detail: "Highest message volume",
+                    alignment: .leading
+                )
+                ActivitySummary(
+                    eyebrow: "BUSIEST DAY",
+                    value: viewModel.stats.mostActiveDay,
+                    detail: "Across the full archive",
+                    alignment: .center
+                )
+                ActivitySummary(
+                    eyebrow: "BUSIEST YEAR",
+                    value: viewModel.stats.mostActiveYear.formatted(.number.grouping(.never)),
+                    detail: "Most messages sent",
+                    alignment: .trailing
+                )
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private var accountArchive: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            sectionTitle("Account archive", subtitle: "Additional records found in the Account, Ads, and billing exports")
+            LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 22) {
+                ArchiveDatum("Developer applications", viewModel.stats.bots.count)
+                ArchiveDatum("Saved avatars", viewModel.stats.recentAvatars.count)
+                ArchiveDatum("Account sessions", viewModel.stats.sessionCount)
+                ArchiveDatum("Personal notes", viewModel.stats.noteCount)
+                ArchiveDatum("Quest records", viewModel.stats.questCount)
+                ArchiveDatum("Quests completed", viewModel.stats.completedQuestCount)
+                ArchiveDatum("Rewards claimed", viewModel.stats.claimedQuestCount)
+                ArchiveDatum("Orbs claimed", viewModel.stats.claimedOrbs)
+                ArchiveDatum("Current Orbs", viewModel.stats.currentOrbsBalance)
+                ArchiveDatum("Entitlements", viewModel.stats.entitlementCount)
+                ArchiveDatum("Payment sources", viewModel.stats.paymentSourceCount)
+                ArchiveDatum("Support tickets", viewModel.stats.tickets.count)
+            }
+        }
+    }
+
+    private var vocabulary: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            sectionTitle("Language and sharing", subtitle: "Frequently used words, shared links, and custom emojis")
+            VStack(spacing: 0) {
+                HStack(spacing: 48) {
+                    languageHeading("Frequent words")
+                    languageHeading("Shared links")
+                    languageHeading("Custom emojis")
+                }
+                .padding(.bottom, 6)
+
+                ForEach(0..<8, id: \.self) { index in
+                    HStack(spacing: 48) {
+                        wordCell(at: index)
+                        linkCell(at: index)
+                        emojiCell(at: index)
                     }
                 }
             }
         }
     }
-    
-    private func dataPoints(width: CGFloat, height: CGFloat) -> [CGPoint] {
-        let step = width / CGFloat(max(data.count - 1, 1))
-        return normalizedData.enumerated().map { index, value in
-            CGPoint(x: CGFloat(index) * step, y: height * (1 - value))
+
+    @ViewBuilder
+    private var applications: some View {
+        if !viewModel.stats.bots.isEmpty {
+            VStack(alignment: .leading, spacing: 22) {
+                sectionTitle("Developer applications", subtitle: "Applications associated with this Discord account")
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(viewModel.stats.bots) { bot in
+                        HStack(spacing: 20) {
+                            Text(bot.name)
+                                .font(.system(size: 13, weight: .semibold))
+                                .frame(width: 190, alignment: .leading)
+                            Text(bot.description.isEmpty ? "No description provided" : bot.description)
+                                .font(.system(size: 11))
+                                .foregroundStyle(theme.textSecondary)
+                                .lineLimit(1)
+                            Spacer()
+                            Text("APPLICATION")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(0.8)
+                                .foregroundStyle(theme.accent)
+                                .frame(width: 90, alignment: .trailing)
+                        }
+                        .padding(.vertical, 12)
+                        Divider()
+                    }
+                }
+            }
         }
+    }
+
+    private func accountAgeText(_ days: Int) -> String {
+        days == 1 ? "Member for 1 day" : "Member for \(days.formatted()) days"
+    }
+
+    private func sectionTitle(_ title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.system(size: 21, weight: .bold)).foregroundStyle(theme.textPrimary)
+            Text(subtitle).font(.system(size: 12)).foregroundStyle(theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 12)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+
+    private func rankedList(_ title: String, items: [(String, Int)]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title.uppercased()).sectionLabel().padding(.bottom, 6)
+            ForEach(Array(items.prefix(7).enumerated()), id: \.offset) { index, item in
+                HStack {
+                    Text(String(format: "%02d", index + 1)).foregroundStyle(theme.accent).frame(width: 26, alignment: .leading)
+                    Text(item.0).lineLimit(1)
+                    Spacer()
+                    Text(viewModel.formatNumber(item.1)).foregroundStyle(theme.textSecondary)
+                }
+                .font(.system(size: 12))
+                .padding(.vertical, 8)
+                Divider()
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func languageHeading(_ title: String) -> some View {
+        Text(title.uppercased())
+            .sectionLabel()
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func wordCell(at index: Int) -> some View {
+        HStack(spacing: 10) {
+            if viewModel.stats.topWords.indices.contains(index) {
+                let item = viewModel.stats.topWords[index]
+                Text(item.word)
+                    .lineLimit(1)
+                Spacer(minLength: 10)
+                Text(viewModel.formatNumber(item.count))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 54, alignment: .trailing)
+            } else {
+                Spacer()
+            }
+        }
+        .font(.system(size: 12))
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+
+    private func linkCell(at index: Int) -> some View {
+        HStack(spacing: 10) {
+            if viewModel.stats.topLinks.indices.contains(index) {
+                let item = viewModel.stats.topLinks[index]
+                Image(systemName: "link")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.accent)
+                    .frame(width: 16)
+                Text(displayLink(item.word))
+                    .font(.system(size: 12, design: .rounded))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(item.word)
+                Spacer(minLength: 10)
+                Text(viewModel.formatNumber(item.count))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 54, alignment: .trailing)
+            } else {
+                Spacer()
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+
+    private func emojiCell(at index: Int) -> some View {
+        HStack(spacing: 10) {
+            if viewModel.stats.topCustomEmojis.indices.contains(index) {
+                let emoji = viewModel.stats.topCustomEmojis[index]
+                AsyncImage(url: URL(string: emoji.imageURL)) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    Color.clear
+                }
+                .frame(width: 28, height: 28)
+                Text(emoji.name)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                Spacer(minLength: 10)
+                Text(viewModel.formatNumber(emoji.count))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 54, alignment: .trailing)
+            } else {
+                Spacer()
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+
+    private func displayLink(_ rawValue: String) -> String {
+        guard let url = URL(string: rawValue), let host = url.host else { return rawValue }
+        let path = url.path == "/" ? "" : url.path
+        return host.replacingOccurrences(of: "www.", with: "") + path
     }
 }
 
-// MARK: - Smooth Shape Logic
+private struct ActivityAreaChart: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let values: [Int]
+    let peakHour: Int
 
-struct SmoothShape: Shape {
+    private var maximum: Int { max(1, values.max() ?? 1) }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let plotHeight = proxy.size.height - 28
+            let plotWidth = proxy.size.width - 52
+            let points = chartPoints(size: CGSize(width: plotWidth, height: plotHeight))
+
+            ZStack(alignment: .topLeading) {
+                VStack(spacing: 0) {
+                    ForEach(0..<4, id: \.self) { index in
+                        Rectangle()
+                            .fill(theme.border.opacity(index == 3 ? 0.9 : 0.55))
+                            .frame(height: 1)
+                        if index < 3 { Spacer() }
+                    }
+                }
+                .frame(width: plotWidth, height: plotHeight)
+
+                if points.count > 1 {
+                    ChartAreaShape(points: points)
+                        .fill(
+                            LinearGradient(
+                                colors: [theme.accent.opacity(0.24), theme.accent.opacity(0.015)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: plotWidth, height: plotHeight)
+
+                    ChartLineShape(points: points)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color(hex: 0x8B7CF6), theme.accent],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                        )
+                        .frame(width: plotWidth, height: plotHeight)
+
+                    if points.indices.contains(peakHour) {
+                        let peak = points[peakHour]
+                        Path { path in
+                            path.move(to: CGPoint(x: peak.x, y: 0))
+                            path.addLine(to: CGPoint(x: peak.x, y: plotHeight))
+                        }
+                        .stroke(theme.accent.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 5]))
+
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().stroke(theme.accent, lineWidth: 3))
+                            .position(peak)
+                    }
+                }
+
+                HStack(spacing: 0) {
+                    ForEach(0..<24, id: \.self) { hour in
+                        Text(hour % 3 == 0 ? String(format: "%02d", hour) : "")
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(theme.textSecondary)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(width: plotWidth)
+                .offset(y: plotHeight + 12)
+
+                VStack {
+                    Text(compact(maximum))
+                    Spacer()
+                    Text(compact(maximum / 2))
+                    Spacer()
+                    Text("0")
+                }
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundStyle(theme.textSecondary)
+                .frame(height: plotHeight)
+                .offset(x: plotWidth + 10)
+            }
+        }
+    }
+
+    private func chartPoints(size: CGSize) -> [CGPoint] {
+        guard values.count > 1 else { return [] }
+        let step = size.width / CGFloat(values.count)
+        return values.enumerated().map { index, value in
+            CGPoint(
+                x: (CGFloat(index) + 0.5) * step,
+                y: size.height - (CGFloat(value) / CGFloat(maximum) * (size.height - 14))
+            )
+        }
+    }
+
+    private func compact(_ value: Int) -> String {
+        if value >= 1_000_000 { return String(format: "%.1fM", Double(value) / 1_000_000) }
+        if value >= 1_000 { return String(format: "%.0fK", Double(value) / 1_000) }
+        return value.formatted()
+    }
+}
+
+private struct ChartLineShape: Shape {
     let points: [CGPoint]
-    let isClosed: Bool
-    
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        guard points.count > 1 else { return path }
-        
-        path.move(to: points[0])
-        
-        // Calculate control points for smooth curve
-        // This is a simplified Catmull-Rom to Bezier conversion or similar logic
-        // For standard "App" look, we can use simple quadratic or cubic interpolation
-        
-        for i in 1..<points.count {
-            let p0 = points[i - 1]
-            let p1 = points[i]
-            
-            // Use midpoints as control points simply? No, that's for quad.
-            // Let's use a standard cubic bezier approach for smoothness
-            // Or simpler: Quad curve to midpoint
-            
-            let mid = CGPoint(x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2)
-            // Using two quad curves: p0 -> mid, mid -> p1
-            // Actually, usually users want "Curve through points".
-            // A simple trick: use control points based on previous/next slopes.
-            // For now, let's use a simple curve:
-            
-            // Standard approach:
-            path.addCurve(to: p1, control1: CGPoint(x: (p0.x + p1.x) / 2, y: p0.y), control2: CGPoint(x: (p0.x + p1.x) / 2, y: p1.y))
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        for index in 1..<points.count {
+            let previous = points[index - 1]
+            let current = points[index]
+            let midpoint = (previous.x + current.x) / 2
+            path.addCurve(
+                to: current,
+                control1: CGPoint(x: midpoint, y: previous.y),
+                control2: CGPoint(x: midpoint, y: current.y)
+            )
         }
-        
-        if isClosed {
-            path.addLine(to: CGPoint(x: points.last?.x ?? 0, y: rect.height))
-            path.addLine(to: CGPoint(x: points.first?.x ?? 0, y: rect.height))
-            path.closeSubpath()
-        }
-        
         return path
     }
 }
 
-// MARK: - Top List Card
-
-struct TopListCard: View {
-    @EnvironmentObject var theme: ThemeManager
-    let title: String
-    let icon: String
-    let items: [(String, String)]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .foregroundStyle(theme.accent)
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary)
-            }
-            
-            if items.isEmpty {
-                Text("No data")
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.textSecondary)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(spacing: 6) {
-                    ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
-                        HStack {
-                            Text("\(idx + 1)")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(theme.textSecondary)
-                                .frame(width: 16)
-                            Text(item.0)
-                                .font(.system(size: 12))
-                                .lineLimit(1)
-                                .foregroundStyle(theme.textPrimary)
-                            Spacer()
-                            Text(item.1)
-                                .font(.system(size: 11))
-                                .foregroundStyle(theme.textSecondary)
-                        }
-                    }
-                }
-            }
-            
-            Spacer()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.bgSecondary)
-        .cornerRadius(12)
+private struct ChartAreaShape: Shape {
+    let points: [CGPoint]
+    func path(in rect: CGRect) -> Path {
+        var path = ChartLineShape(points: points).path(in: rect)
+        guard let first = points.first, let last = points.last else { return path }
+        path.addLine(to: CGPoint(x: last.x, y: rect.maxY))
+        path.addLine(to: CGPoint(x: first.x, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 
-// MARK: - GIF Image View
+private struct ActivitySummary: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let eyebrow: String
+    let value: String
+    let detail: String
+    let alignment: HorizontalAlignment
 
-struct GifImageView: NSViewRepresentable {
-    let url: URL
-    
-    func makeNSView(context: Context) -> NSImageView {
-        let view = NSImageView()
-        view.imageScaling = .scaleProportionallyUpOrDown
-        view.animates = true
-        return view
-    }
-    
-    func updateNSView(_ nsView: NSImageView, context: Context) {
-        if let image = NSImage(contentsOf: url) {
-            nsView.image = image
-            nsView.animates = true
-        }
-    }
-}
-
-
-
-struct RichTopListCard: View {
-    @EnvironmentObject var theme: ThemeManager
-    let title: String
-    let icon: String
-    let items: [DetailedStats]
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .foregroundStyle(theme.accent)
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary)
-                Spacer()
-            }
-            
-            if items.isEmpty {
-                Text("No data")
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.textSecondary)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(spacing: 12) {
-                    ForEach(Array(items.prefix(10).enumerated()), id: \.offset) { idx, item in
-                        RichStatRow(rank: idx + 1, stats: item)
-                    }
-                }
-            }
-             Spacer()
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.bgSecondary)
-        .cornerRadius(12)
-    }
-}
-
-struct RichStatRow: View {
-    @EnvironmentObject var theme: ThemeManager
-    let rank: Int
-    let stats: DetailedStats
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Rank
-            Text("\(rank)")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(theme.accent)
-                .frame(width: 20)
-            
-            // Name & Primary Info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(stats.name)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(1)
-                    .foregroundStyle(theme.textPrimary)
-                
-                HStack(spacing: 8) {
-                    // Small badges for stats
-                     if !stats.topEmojis.isEmpty, let topEmoji = stats.topEmojis.first {
-                        HStack(spacing: 2) {
-                           AsyncImage(url: URL(string: topEmoji.imageURL)) { img in
-                               img.resizable().scaledToFit()
-                           } placeholder: { Color.clear }
-                           .frame(width: 12, height: 12)
-                        }
-                        .help("Top Emoji: \(topEmoji.name)")
-                    }
-                    
-                    let cursedCount = stats.topCursedWords.map(\.count).reduce(0, +)
-                    if cursedCount > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.orange)
-                            Text("\(cursedCount)")
-                                .font(.system(size: 9))
-                                .foregroundStyle(theme.textSecondary)
-                        }
-                        .help("\(cursedCount) cursed words")
-                    }
-                    
-                    let linkCount = stats.topLinks.map(\.count).reduce(0, +)
-                    if linkCount > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "link")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.blue)
-                            Text("\(linkCount)")
-                                .font(.system(size: 9))
-                                .foregroundStyle(theme.textSecondary)
-                        }
-                         .help("\(linkCount) links shared")
-                    }
-                }
-            }
-            
-            Spacer()
-            
-            // Message Count
-            Text("\(stats.messageCount)")
-                .font(.system(size: 12, weight: .bold))
+        VStack(alignment: alignment, spacing: 4) {
+            Text(eyebrow)
+                .font(.system(size: 9, weight: .bold))
+                .tracking(1.1)
+                .foregroundStyle(theme.textSecondary)
+            Text(value)
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(theme.textPrimary)
+            Text(detail)
+                .font(.system(size: 10))
+                .foregroundStyle(theme.textSecondary)
         }
-        .padding(10)
-        .background(theme.bgTertiary.opacity(0.5))
-        .cornerRadius(8)
+        .frame(maxWidth: .infinity, alignment: frameAlignment)
+    }
+
+    private var frameAlignment: Alignment {
+        switch alignment {
+        case .leading: return .leading
+        case .trailing: return .trailing
+        default: return .center
+        }
     }
 }
 
-// Simple FlowLayout for tags
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-    
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
-        if rows.isEmpty { return .zero }
-        let height = rows.last!.maxY
-        return CGSize(width: proposal.width ?? 0, height: height)
+struct PlainMetric: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let value: String
+    let label: String
+    let tint: Color
+
+    init(value: String, label: String, tint: Color) {
+        self.value = value
+        self.label = label
+        self.tint = tint
     }
-    
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
-        for row in rows {
-            for element in row.elements {
-                element.subview.place(at: CGPoint(x: bounds.minX + element.rect.minX, y: bounds.minY + element.rect.minY), proposal: proposal)
-            }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(value).font(.system(size: 28, weight: .bold)).foregroundStyle(theme.textPrimary)
+            Text(label.uppercased()).font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(theme.textSecondary)
+            Rectangle().fill(tint).frame(height: 3)
         }
-    }
-    
-    struct Row {
-        var elements: [Element] = []
-        var maxY: CGFloat = 0
-    }
-    
-    struct Element {
-        var subview: LayoutSubview
-        var rect: CGRect
-    }
-    
-    func arrangeSubviews(proposal: ProposedViewSize, subviews: Subviews) -> [Row] {
-        var rows: [Row] = []
-        var currentRow = Row()
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        let maxWidth = proposal.width ?? 0
-        
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth && !currentRow.elements.isEmpty {
-                y += size.height + spacing
-                x = 0
-                rows.append(currentRow)
-                currentRow = Row()
-            }
-            
-            currentRow.elements.append(Element(subview: subview, rect: CGRect(x: x, y: y, width: size.width, height: size.height)))
-            currentRow.maxY = max(currentRow.maxY, y + size.height)
-            x += size.width + spacing
-        }
-        if !currentRow.elements.isEmpty {
-            rows.append(currentRow)
-        }
-        return rows
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-#Preview {
-    DashboardView()
-        .environmentObject(PackageViewModel())
-        .frame(width: 900, height: 700)
+struct ArchiveDatum: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let label: String
+    let value: Int
+    init(_ label: String, _ value: Int) { self.label = label; self.value = value }
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).font(.system(size: 12)).foregroundStyle(theme.textSecondary)
+            Spacer()
+            Text(value.formatted()).font(.system(size: 18, weight: .semibold)).foregroundStyle(theme.textPrimary)
+        }
+        .padding(.vertical, 10)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+}
+
+struct DataLine: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let label: String
+    let value: String
+    init(_ label: String, _ value: String) { self.label = label; self.value = value }
+    var body: some View {
+        HStack {
+            Text(label).lineLimit(1)
+            Spacer()
+            Text(value).foregroundStyle(theme.textSecondary)
+        }
+        .font(.system(size: 12))
+        .padding(.vertical, 8)
+    }
+}
+
+private extension View where Self == Text {
+    func sectionLabel() -> some View {
+        self.font(.system(size: 9, weight: .bold)).tracking(1.2).foregroundStyle(Color(hex: 0x718096))
+    }
 }

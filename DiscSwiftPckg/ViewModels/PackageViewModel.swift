@@ -64,28 +64,31 @@ class PackageViewModel: ObservableObject {
         log("Root: \(root.lastPathComponent)")
         
         // 1. Parse user.json
-        updateProgress(0.05, "Loading user...", force: true)
+        updateProgress(0.05, "Loading account…", force: true)
         parseUser(at: root)
         
         // 2. Parse servers
-        updateProgress(0.1, "Loading servers...")
+        updateProgress(0.1, "Loading servers…")
         parseServers(at: root)
+
+        // 2.25 Parse account, quests, and billing export summaries
+        parsePackageInsights(at: root)
         
         // 2.5 Parse Bots
-        updateProgress(0.12, "Loading bots...")
+        updateProgress(0.12, "Loading applications…")
         parseBots(at: root)
         
         // 3. Parse messages - Discord-Package style
-        updateProgress(0.15, "Processing messages...")
+        updateProgress(0.15, "Processing messages…")
         parseMessagesDiscordPackageStyle(at: root)
         
 
         
         // 5. Parse Tickets
-        updateProgress(0.95, "Loading tickets...")
+        updateProgress(0.95, "Loading support history…")
         parseTickets(at: root)
         
-        updateProgress(1.0, "Complete!", force: true)
+        updateProgress(1.0, "Analysis complete", force: true)
         
         log("Done: \(stats.messageCount) messages")
         
@@ -96,6 +99,78 @@ class PackageViewModel: ObservableObject {
     }
     
     // MARK: - Parse User
+
+    private func parsePackageInsights(at root: URL) {
+        let accountURL = root.appendingPathComponent("Account/user.json")
+        if let data = try? Data(contentsOf: accountURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let notes = (json["notes"] as? [Any])?.count ?? (json["notes"] as? [String: Any])?.count ?? 0
+            let sessions = (json["user_sessions"] as? [Any])?.count ?? 0
+            let guildSettings = (json["guild_settings"] as? [Any])?.count ?? (json["guild_settings"] as? [String: Any])?.count ?? 0
+            let appActivity = (json["user_activity_application_statistics"] as? [Any])?.count ?? 0
+            let orbs = json["current_orbs_balance"] as? Int ?? 0
+            DispatchQueue.main.async { [weak self] in
+                self?.stats.noteCount = notes
+                self?.stats.sessionCount = sessions
+                self?.stats.guildSettingCount = guildSettings
+                self?.stats.applicationActivityCount = appActivity
+                self?.stats.currentOrbsBalance = orbs
+            }
+        }
+
+        let questsURL = root.appendingPathComponent("Ads/quests_user_status.json")
+        if let data = try? Data(contentsOf: questsURL),
+           let quests = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            let completed = quests.filter { !($0["completed_at"] is NSNull) && $0["completed_at"] != nil }.count
+            let claimed = quests.filter { !($0["claimed_at"] is NSNull) && $0["claimed_at"] != nil }.count
+            let claimedOrbs = quests.reduce(0) { $0 + ($1["orb_quantity_claimed"] as? Int ?? 0) }
+            DispatchQueue.main.async { [weak self] in
+                self?.stats.questCount = quests.count
+                self?.stats.completedQuestCount = completed
+                self?.stats.claimedQuestCount = claimed
+                self?.stats.claimedOrbs = claimedOrbs
+            }
+        }
+
+        let billing = root.appendingPathComponent("Account/user_data_exports/discord_billing")
+        func recordCount(_ name: String) -> Int {
+            let url = billing.appendingPathComponent(name)
+            guard let data = try? Data(contentsOf: url),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { return 0 }
+            return json["record_count"] as? Int ?? (json["records"] as? [Any])?.count ?? 0
+        }
+        let entitlements = recordCount("entitlements.json")
+        let sources = recordCount("payment_sources.json")
+        var exportedPayments: [DiscordPayment] = []
+        let paymentsURL = billing.appendingPathComponent("payments.json")
+        if let data = try? Data(contentsOf: paymentsURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let records = json["records"] as? [[String: Any]] {
+            exportedPayments = records.map {
+                DiscordPayment(
+                    id: $0["id"] as? String,
+                    amount: $0["amount"] as? Int,
+                    currency: $0["currency"] as? String,
+                    status: $0["status"] as? Int,
+                    description: $0["description"] as? String,
+                    createdAt: $0["created_at"] as? String
+                )
+            }
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.stats.entitlementCount = entitlements
+            self?.stats.paymentSourceCount = sources
+            if !exportedPayments.isEmpty {
+                self?.stats.payments = exportedPayments
+                self?.stats.paymentCount = exportedPayments.filter(\.isConfirmed).count
+                self?.stats.totalSpent = Dictionary(grouping: exportedPayments.filter(\.isConfirmed), by: { $0.currency ?? "unknown" })
+                    .mapValues { payments in
+                        Double(payments.compactMap(\.amount).reduce(0, +)) / 100
+                    }
+            }
+        }
+    }
     
     private func parseUser(at root: URL) {
         // Try different folder names
@@ -437,7 +512,10 @@ class PackageViewModel: ObservableObject {
         
         let queue = DispatchQueue(label: "com.discswift.messages", attributes: .concurrent)
         let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: 2) // LIMIT: Only 2 concurrent batches at a time
+        // Message files are independent. A modest, hardware-aware worker count keeps
+        // SSD throughput high without creating thousands of competing file reads.
+        let workerCount = min(8, max(4, ProcessInfo.processInfo.activeProcessorCount - 2))
+        let semaphore = DispatchSemaphore(value: workerCount)
         
         for (index, chunk) in chunks.enumerated() {
             group.enter()
@@ -470,6 +548,7 @@ class PackageViewModel: ObservableObject {
                     // Detailed Stats Accumulators
                     var localServerStats: [String: StatsAccumulator] = [:]
                     var localDMStats: [String: StatsAccumulator] = [:]
+                    var localUnassignedStats = StatsAccumulator()
                     var localDMNames: [String: String] = [:] // Store better names found locally
                     
                     var chId = folder.lastPathComponent
@@ -545,17 +624,18 @@ class PackageViewModel: ObservableObject {
                     
                     var channelMsgCount = 0
                     
-                    // Helper to process content
-                    func processMessage(_ content: String, _ timestamp: String) {
+                    // Analyze once and update both global and conversation-level totals.
+                    func processMessage(_ content: String, _ timestamp: String, detailed: inout StatsAccumulator) {
                         channelMsgCount += 1
                         localCharCount += content.count
+                        detailed.messageCount += 1
+                        detailed.charCount += content.count
                         
-                        if let date = self?.parseDate(timestamp) {
-                            let cal = Calendar.current
-                            localByHour[cal.component(.hour, from: date)] += 1
-                            localByDay[(cal.component(.weekday, from: date) + 5) % 7] += 1
-                            localByMonth[cal.component(.month, from: date) - 1] += 1
-                            localByYear[cal.component(.year, from: date), default: 0] += 1
+                        if let time = self?.parseTimestampParts(timestamp) {
+                            localByHour[time.hour] += 1
+                            localByDay[time.weekday] += 1
+                            localByMonth[time.month - 1] += 1
+                            localByYear[time.year, default: 0] += 1
                         }
                         
                         // Single-pass optimized parsing
@@ -563,75 +643,50 @@ class PackageViewModel: ObservableObject {
                         for word in words {
                             if word.isEmpty { continue }
                             let w = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
-                            
-                            // Check for Emoji
-                            if word.hasPrefix("<") && word.hasSuffix(">") {
-                                 localEmoteCount += 1
-                                 localEmojis[word, default: 0] += 1
-                                 continue
-                            }
-                            
-                            // Check for Mention
+
+                            // Mentions also use angle brackets, so they must be
+                            // recognized before custom emoji.
                             if word.hasPrefix("<@") {
                                 localMentionCount += 1
                                 continue
                             }
-                            
+
+                            // Check for Emoji
+                            if word.hasPrefix("<") && word.hasSuffix(">") {
+                                 localEmoteCount += 1
+                                 localEmojis[word, default: 0] += 1
+                                 detailed.emojis[word, default: 0] += 1
+                                 continue
+                            }
+
                             // Check for Cursed Words (O(1))
                             if cursedWordsSet.contains(w) {
                                 localCursed[w, default: 0] += 1
+                                detailed.cursed[w, default: 0] += 1
+                                continue
                             }
-                            
+
                             // Check for Links
                             if w.hasPrefix("http") {
                                  localLinks[w, default: 0] += 1
+                                 detailed.links[w, default: 0] += 1
                                  
                                  // Check for Discord Links
                                  if w.contains("discord.gg") || w.contains("discord.com/invite") {
                                      localDiscordLinks[w, default: 0] += 1
+                                     detailed.discordLinks[w, default: 0] += 1
                                  }
                                  continue // Don't count links as words
                             }
-                            
+
                             // Valid Word
                             if !w.isEmpty && w.count > 2 {
-                                 localMsgCount = localMsgCount + 0 // No-op, just to use var
                                  localWordCount += 1 // Count valid words
+                                 detailed.wordCount += 1
                                  if w.count > 3 { // Statistic threshold for "Favorite Words"
                                      localWords[w, default: 0] += 1
+                                     detailed.words[w, default: 0] += 1
                                  }
-                            }
-                        }
-                    }
-                    
-                    // Helper to update specific accumulator structure
-                    func updateStats(_ stats: inout StatsAccumulator, _ content: String) {
-                        stats.messageCount += 1
-                        stats.charCount += content.count
-                        
-                        let words = content.components(separatedBy: .whitespacesAndNewlines)
-                        for word in words {
-                            if word.isEmpty { continue }
-                            let w = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
-                            
-                            if word.hasPrefix("<") && word.hasSuffix(">") {
-                                stats.emojis[word, default: 0] += 1
-                                continue
-                            }
-                            
-                            if cursedWordsSet.contains(w) { stats.cursed[w, default: 0] += 1; continue }
-                            
-                            if w.hasPrefix("http") {
-                                 stats.links[w, default: 0] += 1
-                                 if w.contains("discord.gg") || w.contains("discord.com/invite") {
-                                     stats.discordLinks[w, default: 0] += 1
-                                 }
-                                 continue
-                            }
-                            
-                            if !w.isEmpty && w.count > 2 {
-                                 stats.wordCount += 1
-                                 if w.count > 3 { stats.words[w, default: 0] += 1 }
                             }
                         }
                     }
@@ -648,21 +703,12 @@ class PackageViewModel: ObservableObject {
                                     let timestampStr = parts[1]
                                     let contentStr = parts.dropFirst(2).joined(separator: ",")
                                     
-                                    processMessage(contentStr, timestampStr)
-                                    
-                                    // Accumulate Detailed Stats
-                                    if channelMsgCount > 0 { // Just processed
-                                        if let gid = guildId {
-                                            updateStats(&localServerStats[gid, default: StatsAccumulator()], contentStr)
-                                        } else if isDM {
-                                            updateStats(&localDMStats[chId, default: StatsAccumulator()], contentStr)
-                                        } else {
-                                            // Fallback
-                                            let pathLower = folder.path.lowercased()
-                                            if !pathLower.contains("/servers") {
-                                                updateStats(&localDMStats[chId, default: StatsAccumulator()], contentStr)
-                                            }
-                                        }
+                                    if let gid = guildId {
+                                        processMessage(contentStr, timestampStr, detailed: &localServerStats[gid, default: StatsAccumulator()])
+                                    } else if isDM || !folder.path.lowercased().contains("/servers") {
+                                        processMessage(contentStr, timestampStr, detailed: &localDMStats[chId, default: StatsAccumulator()])
+                                    } else {
+                                        processMessage(contentStr, timestampStr, detailed: &localUnassignedStats)
                                     }
                                 }
                             }
@@ -672,25 +718,19 @@ class PackageViewModel: ObservableObject {
                     else if FileManager.default.fileExists(atPath: jsonFile.path) {
                          // Improved: Use mappedIfSafe for memory
                         if let data = try? Data(contentsOf: jsonFile, options: .mappedIfSafe),
-                           let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                            for msg in json {
-                               if let content = msg["Contents"] as? String, let ts = msg["Timestamp"] as? String {
-                                   processMessage(content, ts)
-                                   
-                                   // Accumulate Detailed Stats
+                           let messages = try? JSONDecoder().decode([DiscordMessage].self, from: data) {
+                            for message in messages {
+                               if let content = message.contents {
+                                   let ts = message.timestamp
                                     if let gid = guildId {
-                                        updateStats(&localServerStats[gid, default: StatsAccumulator()], content)
-                                    } else if isDM {
-                                        updateStats(&localDMStats[chId, default: StatsAccumulator()], content)
+                                        processMessage(content, ts, detailed: &localServerStats[gid, default: StatsAccumulator()])
+                                    } else if isDM || !folder.path.lowercased().contains("/servers") {
+                                        processMessage(content, ts, detailed: &localDMStats[chId, default: StatsAccumulator()])
                                     } else {
-                                        // Fallback
-                                        let pathLower = folder.path.lowercased()
-                                        if !pathLower.contains("/servers") {
-                                            updateStats(&localDMStats[chId, default: StatsAccumulator()], content)
-                                        }
+                                        processMessage(content, ts, detailed: &localUnassignedStats)
                                     }
                                }
-                               if let attachments = msg["Attachments"] as? String, !attachments.isEmpty {
+                               if let attachments = message.attachments, !attachments.isEmpty {
                                    localFileCount += 1
                                }
                             }
@@ -753,7 +793,7 @@ class PackageViewModel: ObservableObject {
                     let progress = Double(index * batchSize) / Double(allChannelFolders.count) * 100
                     let uiProgress = 0.15 + (progress / 100.0) * 0.75
                     self?.log(String(format: "Messages Progress: %.1f%%", progress))
-                    self?.updateProgress(uiProgress, String(format: "Processing messages... %.0f%%", progress))
+                    self?.updateProgress(uiProgress, String(format: "Processing messages… %.0f%%", progress))
                 }
             }
         }
@@ -904,42 +944,44 @@ class PackageViewModel: ObservableObject {
     
 
     
-    private func parseDate(_ ts: String) -> Date? {
-        // Discord timestamp format: 2024-01-15T12:30:45.123+00:00 or 2024-01-15T12:30:45.123Z
-        let formatters: [DateFormatter] = [
-            {
-                let f = DateFormatter()
-                f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-                f.locale = Locale(identifier: "en_US_POSIX")
-                return f
-            }(),
-            {
-                let f = DateFormatter()
-                f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-                f.locale = Locale(identifier: "en_US_POSIX")
-                return f
-            }(),
-            {
-                let f = DateFormatter()
-                f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                f.locale = Locale(identifier: "en_US_POSIX")
-                return f
-            }()
-        ]
-        
-        for formatter in formatters {
-            if let date = formatter.date(from: ts) {
-                return date
+    /// Extracts the fields used by the charts directly from Discord's ISO timestamp.
+    /// This avoids constructing several DateFormatter instances for every message.
+    private func parseTimestampParts(_ timestamp: String) -> (year: Int, month: Int, hour: Int, weekday: Int)? {
+        let bytes = timestamp.utf8
+        guard bytes.count >= 13 else { return nil }
+
+        func number(at offset: Int, length: Int) -> Int? {
+            guard offset + length <= bytes.count else { return nil }
+            var index = bytes.index(bytes.startIndex, offsetBy: offset)
+            var value = 0
+            for _ in 0..<length {
+                let byte = bytes[index]
+                guard byte >= 48, byte <= 57 else { return nil }
+                value = value * 10 + Int(byte - 48)
+                index = bytes.index(after: index)
             }
+            return value
         }
-        
-        // Also try ISO8601
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = iso.date(from: ts) { return date }
-        
-        iso.formatOptions = [.withInternetDateTime]
-        return iso.date(from: ts)
+
+        guard let year = number(at: 0, length: 4),
+              let month = number(at: 5, length: 2),
+              let day = number(at: 8, length: 2),
+              let hour = number(at: 11, length: 2),
+              (1...12).contains(month),
+              (0...23).contains(hour)
+        else { return nil }
+
+        // Sakamoto's Gregorian weekday algorithm. Result is converted from
+        // Sunday-based (0) to the app's Monday-based array (0).
+        let offsets = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
+        let adjustedYear = month < 3 ? year - 1 : year
+        let sundayBased = (
+            adjustedYear + adjustedYear / 4 - adjustedYear / 100 +
+            adjustedYear / 400 + offsets[month - 1] + day
+        ) % 7
+        let mondayBased = (sundayBased + 6) % 7
+
+        return (year, month, hour, mondayBased)
     }
     
     func reset() {

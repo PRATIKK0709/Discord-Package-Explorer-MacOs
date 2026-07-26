@@ -2,8 +2,8 @@ import SwiftUI
 import Combine
 
 enum ThemeProfile: String, CaseIterable, Identifiable {
-    case standard = "Standard"
-    case discord = "Discord"
+    case standard = "Soft Pastel"
+    case discord = "Lavender"
     
     var id: String { rawValue }
 }
@@ -26,35 +26,39 @@ class ThemeManager: ObservableObject {
     }
     
     // Derived Colors
-    var bgPrimary: Color {
-        currentProfile == .discord ? Color(hex: 0x36393f) : Color(hex: 0xFFFFFF)
-    }
+    var bgPrimary: Color { Color(hex: 0xF8FAFD) }
     
     var bgSecondary: Color {
-        currentProfile == .discord ? Color(hex: 0x2f3136) : Color(hex: 0xF5F5F7)
+        Color.white
     }
     
     var bgTertiary: Color {
-        currentProfile == .discord ? Color(hex: 0x202225) : Color(hex: 0xE5E5EB)
+        currentProfile == .discord ? Color(hex: 0xF0EEFF) : Color(hex: 0xF1F5F9)
     }
     
     var textPrimary: Color {
-        currentProfile == .discord ? Color(hex: 0xFFFFFF) : Color(hex: 0x000000)
+        Color(hex: 0x172033)
     }
     
     var textSecondary: Color {
-        currentProfile == .discord ? Color(hex: 0xb9bbbe) : Color(hex: 0x6E6E73)
+        Color(hex: 0x718096)
     }
     
     var accent: Color {
-        currentProfile == .discord ? Color(hex: 0x5865F2) : Color(hex: 0xFF9500)
+        currentProfile == .discord ? Color(hex: 0x8B7CF6) : Color(hex: 0x6D8EF7)
     }
     
     var border: Color {
-        currentProfile == .discord ? Color.white.opacity(0.08) : Color.black.opacity(0.08)
+        Color(hex: 0xE6EAF0)
     }
     
     var cardBg: Color {
-        currentProfile == .discord ? Color(hex: 0x40444b) : Color.white
+        Color.white
     }
+
+    var mint: Color { Color(hex: 0xDDF7EC) }
+    var lavender: Color { Color(hex: 0xEEE9FF) }
+    var peach: Color { Color(hex: 0xFFF0E4) }
+    var sky: Color { Color(hex: 0xE4F2FF) }
+    var rose: Color { Color(hex: 0xFFE9F0) }
 }

@@ -1,176 +1,149 @@
 import SwiftUI
 
 struct ServersView: View {
-    @EnvironmentObject var viewModel: PackageViewModel
-    @EnvironmentObject var theme: ThemeManager
+    @EnvironmentObject private var viewModel: PackageViewModel
+    @EnvironmentObject private var theme: ThemeManager
     @State private var searchText = ""
-    
-    var filteredServers: [(name: String, messageCount: Int)] {
-        let list = viewModel.stats.serverList
-        if searchText.isEmpty {
-            return list
-        }
-        return list.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+
+    private var servers: [(name: String, messageCount: Int)] {
+        searchText.isEmpty
+            ? viewModel.stats.serverList
+            : viewModel.stats.serverList.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Servers")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-                
-                Spacer()
-                
-                Text("\(viewModel.stats.serverList.count) total")
-                    .font(.system(size: 14))
-                    .foregroundStyle(theme.textSecondary)
-            }
-            .padding(.horizontal, 32)
-            .padding(.top, 32)
-            .padding(.bottom, 16)
-            
-            // Search & Stats Row
-            HStack(spacing: 16) {
-                // Search
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(theme.textSecondary)
-                    TextField("Search servers...", text: $searchText)
-                        .textFieldStyle(.plain)
-                }
-                .padding(10)
-                .background(theme.bgSecondary)
-                .cornerRadius(8)
-                
-                // key stats
-                HStack(spacing: 12) {
-                     ServerStatPill(title: "Muted", value: "\(viewModel.stats.mutedServerCount)", icon: "speaker.slash.fill", color: .red) // Only keep mute as it's useful
-                     ServerStatPill(title: "Total Messages", value: viewModel.formatNumber(viewModel.stats.serverMessages), icon: "bubble.left.fill", color: .purple)
-                }
-            }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 24)
-            
-            // Server list (Unified Grid)
+            DirectoryHeader(
+                eyebrow: "COMMUNITIES",
+                title: "Servers",
+                subtitle: serverSummary,
+                searchPrompt: "Search servers",
+                searchText: $searchText
+            )
+
+            DirectoryColumnLabels(primary: "SERVER", secondary: "MESSAGES")
+
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16)], spacing: 16) {
-                    ForEach(Array(filteredServers.enumerated()), id: \.element.name) { index, server in
-                        ServerCard(
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(servers.enumerated()), id: \.element.name) { index, server in
+                        ArchiveDirectoryRow(
+                            rank: index + 1,
                             name: server.name,
-                            messageCount: server.messageCount,
-                            formattedCount: viewModel.formatNumber(server.messageCount),
-                            rank: index + 1
+                            count: server.messageCount,
+                            maximum: viewModel.stats.serverList.first?.messageCount ?? 1,
+                            tint: index < 3 ? theme.accent : Color(hex: 0xAAB7C8)
                         )
                     }
                 }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 40)
+                .padding(.horizontal, 42)
+                .padding(.bottom, 38)
             }
         }
         .background(theme.bgPrimary)
     }
+
+    private var serverSummary: String {
+        let count = viewModel.stats.serverList.count
+        let noun = count == 1 ? "server" : "servers"
+        return "\(count.formatted()) \(noun) · \(viewModel.formatNumber(viewModel.stats.serverMessages)) messages"
+    }
 }
 
-struct ServerStatPill: View {
-    @EnvironmentObject var theme: ThemeManager
+struct DirectoryHeader: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let eyebrow: String
     let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 10))
-                .foregroundStyle(color)
-            
-            Text(value)
-                .font(.system(size: 12, weight: .bold))
-            
-            Text(title)
-                .font(.system(size: 10))
-                .foregroundStyle(theme.textSecondary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(theme.bgSecondary)
-        .cornerRadius(6)
-    }
-}
+    let subtitle: String
+    let searchPrompt: String
+    @Binding var searchText: String
 
-struct ServerCard: View {
-    @EnvironmentObject var theme: ThemeManager
-    let name: String
-    let messageCount: Int
-    let formattedCount: String
-    let rank: Int
-    
-    var rankColor: Color {
-        switch rank {
-        case 1: return Color(hex: 0xFFD700) // Gold
-        case 2: return Color(hex: 0xC0C0C0) // Silver
-        case 3: return Color(hex: 0xCD7F32) // Bronze
-        default: return theme.textSecondary.opacity(0.3)
-        }
-    }
-    
     var body: some View {
-        HStack(spacing: 12) {
-            // Rank Badge
-            ZStack {
-                Circle()
-                    .fill(theme.bgSecondary)
-                    .frame(width: 24, height: 24)
-                
-                if rank <= 3 {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(rankColor)
-                } else {
-                    Text("#\(rank)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(theme.textSecondary)
-                }
-            }
-            
-            // Initial
-            ZStack {
-                Circle()
-                    .fill(theme.accent.opacity(0.1))
-                    .frame(width: 40, height: 40)
-                Text(String(name.prefix(1)).uppercased())
-                    .font(.system(size: 16, weight: .bold))
+        HStack(alignment: .bottom, spacing: 30) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(eyebrow)
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.4)
                     .foregroundStyle(theme.accent)
-            }
-            
-            // Info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.system(size: 14, weight: .medium))
+                Text(title)
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
-                
-                Text("\(formattedCount) msgs")
+                Text(subtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(theme.textSecondary)
             }
-            
             Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
+                TextField(searchPrompt, text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+            }
+            .frame(width: 250)
+            .padding(.vertical, 8)
+            .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
         }
-        .padding(12)
-        .background(theme.cardBg)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(theme.border.opacity(0.5), lineWidth: 1)
-        )
+        .padding(.horizontal, 42)
+        .padding(.top, 36)
+        .padding(.bottom, 24)
     }
 }
 
-#Preview {
-    ServersView()
-        .environmentObject(PackageViewModel())
+struct DirectoryColumnLabels: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let primary: String
+    let secondary: String
+    var body: some View {
+        HStack {
+            Text("#").frame(width: 36, alignment: .leading)
+            Text(primary)
+            Spacer()
+            Text(secondary).frame(width: 100, alignment: .trailing)
+        }
+        .font(.system(size: 9, weight: .bold))
+        .tracking(1)
+        .foregroundStyle(theme.textSecondary)
+        .padding(.horizontal, 42)
+        .padding(.vertical, 10)
+        .overlay(Rectangle().fill(theme.border).frame(height: 1), alignment: .bottom)
+    }
+}
+
+struct ArchiveDirectoryRow: View {
+    @EnvironmentObject private var theme: ThemeManager
+    let rank: Int
+    let name: String
+    let count: Int
+    let maximum: Int
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(String(format: "%02d", rank))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(rank <= 3 ? theme.accent : theme.textSecondary)
+                .frame(width: 36, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(name)
+                    .font(.system(size: 13, weight: rank <= 3 ? .semibold : .regular))
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+                GeometryReader { proxy in
+                    Rectangle()
+                        .fill(tint.opacity(0.55))
+                        .frame(width: proxy.size.width * CGFloat(count) / CGFloat(max(1, maximum)), height: 2)
+                }
+                .frame(height: 2)
+            }
+
+            Text(count.formatted())
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(theme.textSecondary)
+                .frame(width: 100, alignment: .trailing)
+        }
+        .padding(.vertical, 13)
+        .overlay(Rectangle().fill(theme.border.opacity(0.75)).frame(height: 1), alignment: .bottom)
+    }
 }

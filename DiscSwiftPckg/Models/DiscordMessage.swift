@@ -13,6 +13,20 @@ struct DiscordMessage: Codable {
         case contents = "Contents"
         case attachments = "Attachments"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let stringID = try? container.decode(String.self, forKey: .id) {
+            id = stringID
+        } else if let integerID = try? container.decode(UInt64.self, forKey: .id) {
+            id = String(integerID)
+        } else {
+            id = ""
+        }
+        timestamp = try container.decode(String.self, forKey: .timestamp)
+        contents = try container.decodeIfPresent(String.self, forKey: .contents)
+        attachments = try container.decodeIfPresent(String.self, forKey: .attachments)
+    }
     
     /// Parse timestamp to Date
     var date: Date? {

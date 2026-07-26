@@ -1,0 +1,269 @@
+{
+  "avatar_hash" : "",
+  "connections" : [
+    {
+      "name" : "mayacreates",
+      "type" : "github"
+    },
+    {
+      "name" : "Maya's Studio",
+      "type" : "spotify"
+    },
+    {
+      "name" : "Pixel Garden",
+      "type" : "youtube"
+    }
+  ],
+  "current_orbs_balance" : 4250,
+  "discriminator" : "0",
+  "email" : "maya@example.invalid",
+  "flags" : 0,
+  "global_name" : "Maya Chen",
+  "guild_settings" : [
+    {
+      "guild_id" : "5001",
+      "muted" : false
+    },
+    {
+      "guild_id" : "5002",
+      "muted" : false
+    },
+    {
+      "guild_id" : "5003",
+      "muted" : false
+    },
+    {
+      "guild_id" : "5004",
+      "muted" : false
+    },
+    {
+      "guild_id" : "5005",
+      "muted" : false
+    },
+    {
+      "guild_id" : "5006",
+      "muted" : false
+    },
+    {
+      "guild_id" : "5007",
+      "muted" : false
+    },
+    {
+      "guild_id" : "5008",
+      "muted" : false
+    }
+  ],
+  "id" : "720145223846658109",
+  "notes" : [
+    {
+      "id" : "81001",
+      "note" : "Met through the design community"
+    },
+    {
+      "id" : "81003",
+      "note" : "Game-night organizer"
+    }
+  ],
+  "phone" : null,
+  "premium_type" : 2,
+  "relationships" : [
+    {
+      "id" : "81001",
+      "type" : 1
+    },
+    {
+      "id" : "81002",
+      "type" : 1
+    },
+    {
+      "id" : "81003",
+      "type" : 1
+    },
+    {
+      "id" : "81004",
+      "type" : 1
+    },
+    {
+      "id" : "81005",
+      "type" : 1
+    },
+    {
+      "id" : "81006",
+      "type" : 1
+    },
+    {
+      "id" : "81007",
+      "type" : 1
+    },
+    {
+      "id" : "81008",
+      "type" : 1
+    },
+    {
+      "id" : "81009",
+      "type" : 1
+    },
+    {
+      "id" : "81010",
+      "type" : 1
+    },
+    {
+      "id" : "81011",
+      "type" : 1
+    },
+    {
+      "id" : "81012",
+      "type" : 1
+    },
+    {
+      "id" : "81013",
+      "type" : 1
+    },
+    {
+      "id" : "81014",
+      "type" : 1
+    },
+    {
+      "id" : "81015",
+      "type" : 1
+    },
+    {
+      "id" : "81016",
+      "type" : 1
+    },
+    {
+      "id" : "81017",
+      "type" : 1
+    },
+    {
+      "id" : "81018",
+      "type" : 2
+    }
+  ],
+  "user_activity_application_statistics" : [
+    {
+      "application_id" : "7001",
+      "total_duration" : 3600
+    },
+    {
+      "application_id" : "7002",
+      "total_duration" : 7200
+    },
+    {
+      "application_id" : "7003",
+      "total_duration" : 10800
+    },
+    {
+      "application_id" : "7004",
+      "total_duration" : 14400
+    },
+    {
+      "application_id" : "7005",
+      "total_duration" : 18000
+    },
+    {
+      "application_id" : "7006",
+      "total_duration" : 21600
+    },
+    {
+      "application_id" : "7007",
+      "total_duration" : 25200
+    },
+    {
+      "application_id" : "7008",
+      "total_duration" : 28800
+    },
+    {
+      "application_id" : "7009",
+      "total_duration" : 32400
+    },
+    {
+      "application_id" : "70010",
+      "total_duration" : 36000
+    },
+    {
+      "application_id" : "70011",
+      "total_duration" : 39600
+    },
+    {
+      "application_id" : "70012",
+      "total_duration" : 43200
+    }
+  ],
+  "user_sessions" : [
+    {
+      "id" : "session-1",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-2",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-3",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-4",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-5",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-6",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-7",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-8",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-9",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-10",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-11",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-12",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-13",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-14",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-15",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-16",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-17",
+      "status" : "inactive"
+    },
+    {
+      "id" : "session-18",
+      "status" : "inactive"
+    }
+  ],
+  "username" : "pixelgarden",
+  "verified" : true
+}

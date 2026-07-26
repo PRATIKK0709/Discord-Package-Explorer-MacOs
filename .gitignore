@@ -1,7 +1,11 @@
+.DS_Store
+xcuserdata/
+DerivedData/
+.build/
+
+package-2/
 raw_structure.json
 processed_display.json
 Support_Tickets/
-
 DemoPackage/
 generate_vast_demo.py
-README.md

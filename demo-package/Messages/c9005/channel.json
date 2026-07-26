@@ -1,0 +1,11 @@
+{
+  "id" : "9005",
+  "name" : "Creative Study Group",
+  "recipients" : [
+    {
+      "global_name" : "Creative Study Group",
+      "username" : "creative_study_group"
+    }
+  ],
+  "type" : 3
+}

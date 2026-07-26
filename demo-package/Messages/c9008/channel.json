@@ -1,0 +1,11 @@
+{
+  "id" : "9008",
+  "name" : "Weekend Sketchers",
+  "recipients" : [
+    {
+      "global_name" : "Weekend Sketchers",
+      "username" : "weekend_sketchers"
+    }
+  ],
+  "type" : 3
+}
